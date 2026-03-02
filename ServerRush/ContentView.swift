@@ -39,22 +39,35 @@ struct ContentView: View {
 
             VStack(spacing: 0) {
                 HUDView(gameState: gameState)
-                Spacer()
 
+                // Guide message just below HUD
+                if gameState.guideVisible, let message = gameState.guideMessage {
+                    AIGuideView(message: message, gameState: gameState)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .allowsHitTesting(true)
+                        .padding(.top, 4)
+                }
+
+                // Incident alerts below guide
                 if !gameState.activeIncidents.isEmpty {
                     IncidentAlertView(gameState: gameState)
                         .transition(.move(edge: .trailing))
+                        .padding(.top, 4)
                 }
 
                 Spacer()
-
-                if gameState.guideVisible, let message = gameState.guideMessage {
-                    AIGuideView(message: message, gameState: gameState)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .padding(.bottom, 8)
-                }
-
                 BuildMenuView(gameState: gameState)
+            }
+
+            // RackInfoView bottom sheet when a tile with equipment is selected
+            if let selectedPos = gameState.selectedTile,
+               let equipment = gameState.placedEquipment[selectedPos] {
+                VStack {
+                    Spacer()
+                    RackInfoView(gameState: gameState, equipment: equipment)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: gameState.selectedTile)
             }
         }
     }
@@ -72,10 +85,8 @@ struct ContentView: View {
                 .padding(.horizontal, 40)
 
             Button {
-                gameState.phase = .playing
-                gameState.money = 500
-                gameState.activeIncidents.removeAll()
-                gameState.failedIncidentCount = 0
+                gameScene = nil
+                gameState.startNewGame()
             } label: {
                 HStack(spacing: 8) {
                     Image(systemName: "arrow.counterclockwise")
@@ -94,6 +105,7 @@ struct ContentView: View {
             }
 
             Button {
+                gameScene = nil
                 gameState.phase = .mainMenu
             } label: {
                 Text("Main Menu")
@@ -107,7 +119,7 @@ struct ContentView: View {
         if let existing = gameScene {
             return existing
         }
-        let scene = GameScene(size: CGSize(width: 1024, height: 768))
+        let scene = GameScene(size: CGSize(width: 393, height: 852))
         scene.gameState = gameState
         scene.scaleMode = .resizeFill
         gameScene = scene

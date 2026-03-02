@@ -34,8 +34,10 @@ final class CameraController {
     func attach(to scene: SKScene) {
         scene.addChild(cameraNode)
         scene.camera = cameraNode
-        cameraNode.setScale(1.0)
-        targetScale = 1.0
+        // Start slightly zoomed in for portrait — grid fills width nicely
+        let initialScale: CGFloat = 0.75
+        cameraNode.setScale(initialScale)
+        targetScale = initialScale
     }
 
     func configure(gridWidth: Int, gridHeight: Int, sceneSize: CGSize) {
@@ -51,7 +53,7 @@ final class CameraController {
         pinchGesture = pinch
 
         let pan = UIPanGestureRecognizer(target: self, action: #selector(handlePan(_:)))
-        pan.minimumNumberOfTouches = 1
+        pan.minimumNumberOfTouches = 2
         pan.maximumNumberOfTouches = 2
         view.addGestureRecognizer(pan)
         panGesture = pan

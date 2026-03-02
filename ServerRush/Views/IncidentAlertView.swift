@@ -4,31 +4,20 @@ struct IncidentAlertView: View {
     let gameState: GameState
 
     var body: some View {
-        VStack(spacing: 8) {
-            ForEach(gameState.activeIncidents.filter { !$0.resolved && !$0.failed }) { incident in
-                WarmIncidentCard(incident: incident) {
-                    resolveIncident(incident)
+        // TimelineView ensures continuous re-render so timer bars drain smoothly
+        TimelineView(.animation) { _ in
+            VStack(spacing: 8) {
+                ForEach(gameState.activeIncidents.filter { !$0.resolved && !$0.failed }) { incident in
+                    WarmIncidentCard(incident: incident)
+                        .transition(.asymmetric(
+                            insertion: .move(edge: .trailing).combined(with: .opacity),
+                            removal: .scale.combined(with: .opacity)
+                        ))
                 }
-                .transition(.asymmetric(
-                    insertion: .move(edge: .trailing).combined(with: .opacity),
-                    removal: .scale.combined(with: .opacity)
-                ))
             }
-        }
-        .frame(maxWidth: .infinity, alignment: .trailing)
-        .padding(.trailing, 12)
-        .animation(.spring(response: 0.4, dampingFraction: 0.75), value: gameState.activeIncidents.map(\.id))
-    }
-
-    private func resolveIncident(_ incident: ActiveIncident) {
-        UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-        if let idx = gameState.activeIncidents.firstIndex(where: { $0.id == incident.id }) {
-            gameState.activeIncidents[idx].resolved = true
-            gameState.resolvedIncidentCount += 1
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                gameState.activeIncidents.removeAll { $0.id == incident.id }
-            }
+            .frame(maxWidth: .infinity, alignment: .trailing)
+            .padding(.trailing, 12)
+            .animation(.spring(response: 0.4, dampingFraction: 0.75), value: gameState.activeIncidents.map(\.id))
         }
     }
 }
@@ -37,7 +26,6 @@ struct IncidentAlertView: View {
 
 private struct WarmIncidentCard: View {
     let incident: ActiveIncident
-    let onResolve: () -> Void
 
     @State private var isPulsing = false
 

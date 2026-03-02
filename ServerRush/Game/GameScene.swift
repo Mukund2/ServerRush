@@ -32,7 +32,7 @@ final class GameScene: SKScene {
     private var guideSprite: SKSpriteNode?
     private var guideTargetPosition: CGPoint?
     private var guideWanderTimer: TimeInterval = 0
-    private let guideWanderInterval: TimeInterval = 5.0
+    private let guideWanderInterval: TimeInterval = 10.0
 
     // Dragged tool sprite (for drag-to-fix)
     var draggedToolSprite: SKSpriteNode?
@@ -90,13 +90,16 @@ final class GameScene: SKScene {
         addChild(effectLayer)
         addChild(guideLayer)
 
-        // Camera
+        // Camera - focus on the playable area center, not the full grid
         cameraController.attach(to: self)
         cameraController.configure(
             gridWidth: gameState.gridWidth,
             gridHeight: gameState.gridHeight,
             sceneSize: size
         )
+        // Center camera on the starting area (cols 5-10, rows 5-10)
+        let center = IsometricUtils.gridToScreen(col: 7, row: 7)
+        cameraController.cameraNode.position = center
         cameraController.installGestures(on: view)
 
         // Build floor grid (6x6 initial)
@@ -123,11 +126,27 @@ final class GameScene: SKScene {
 
         for col in 0..<gameState.gridWidth {
             for row in 0..<gameState.gridHeight {
+                let isPlayable = gameState.isUnlockedTile(col: col, row: row)
+                let isBorder = gameState.isExpansionBorderTile(col: col, row: row)
+
+                // Only render playable tiles and expansion border tiles
+                guard isPlayable || isBorder else { continue }
+
                 let screenPos = IsometricUtils.gridToScreen(col: col, row: row)
-                let tile = SKSpriteNode(texture: floorTexture)
-                tile.position = screenPos
-                tile.zPosition = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.floorLayer)
-                floorLayer.addChild(tile)
+
+                if isPlayable {
+                    let tile = SKSpriteNode(texture: floorTexture)
+                    tile.position = screenPos
+                    tile.zPosition = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.floorLayer)
+                    floorLayer.addChild(tile)
+                } else if isBorder {
+                    // Expansion border tiles: dimmer with "buy" hint
+                    let tile = SKSpriteNode(texture: floorTexture)
+                    tile.position = screenPos
+                    tile.alpha = 0.35
+                    tile.zPosition = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.floorLayer)
+                    floorLayer.addChild(tile)
+                }
             }
         }
     }
@@ -185,36 +204,75 @@ final class GameScene: SKScene {
     // MARK: - Guide Character
 
     private func spawnGuideCharacter() {
-        let guideSize: CGFloat = 20
+        let guideSize: CGFloat = 48
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: guideSize, height: guideSize))
         let guideImage = renderer.image { ctx in
             let gc = ctx.cgContext
+
+            // Shadow
+            gc.setFillColor(UIColor(red: 0, green: 0, blue: 0, alpha: 0.1).cgColor)
+            gc.fillEllipse(in: CGRect(x: 6, y: 36, width: guideSize - 12, height: 8))
+
             // Round warm body
             gc.setFillColor(Theme.skAccent.cgColor)
-            gc.fillEllipse(in: CGRect(x: 2, y: 4, width: guideSize - 4, height: guideSize - 4))
-            // Eyes
+            gc.fillEllipse(in: CGRect(x: 4, y: 6, width: guideSize - 8, height: guideSize - 14))
+
+            // Lighter belly
+            gc.setFillColor(UIColor(red: 0.95, green: 0.75, blue: 0.55, alpha: 0.6).cgColor)
+            gc.fillEllipse(in: CGRect(x: 12, y: 16, width: guideSize - 24, height: guideSize - 28))
+
+            // Eyes (white)
             gc.setFillColor(UIColor.white.cgColor)
-            gc.fillEllipse(in: CGRect(x: 5, y: 8, width: 4, height: 4))
-            gc.fillEllipse(in: CGRect(x: 11, y: 8, width: 4, height: 4))
+            gc.fillEllipse(in: CGRect(x: 12, y: 12, width: 10, height: 10))
+            gc.fillEllipse(in: CGRect(x: 26, y: 12, width: 10, height: 10))
+
+            // Pupils
             gc.setFillColor(Theme.skTextPrimary.cgColor)
-            gc.fillEllipse(in: CGRect(x: 6, y: 9, width: 2, height: 2))
-            gc.fillEllipse(in: CGRect(x: 12, y: 9, width: 2, height: 2))
+            gc.fillEllipse(in: CGRect(x: 15, y: 14, width: 5, height: 5))
+            gc.fillEllipse(in: CGRect(x: 29, y: 14, width: 5, height: 5))
+
+            // Eye highlights
+            gc.setFillColor(UIColor.white.cgColor)
+            gc.fillEllipse(in: CGRect(x: 16, y: 14, width: 2, height: 2))
+            gc.fillEllipse(in: CGRect(x: 30, y: 14, width: 2, height: 2))
+
+            // Smile
+            gc.setStrokeColor(Theme.skTextPrimary.cgColor)
+            gc.setLineWidth(1.5)
+            gc.addArc(center: CGPoint(x: guideSize / 2, y: 24), radius: 6, startAngle: 0.2, endAngle: .pi - 0.2, clockwise: false)
+            gc.strokePath()
+
+            // Hard hat (warm gold)
+            gc.setFillColor(Theme.skAccentGold.cgColor)
+            gc.fill(CGRect(x: 8, y: 2, width: guideSize - 16, height: 10))
+            gc.fill(CGRect(x: 4, y: 8, width: guideSize - 8, height: 4))
         }
 
         let sprite = SKSpriteNode(texture: SKTexture(image: guideImage))
-        let startPos = IsometricUtils.gridToScreen(col: 1, row: 1)
-        sprite.position = CGPoint(x: startPos.x, y: startPos.y + 10)
+        // Start in the middle of the starting area
+        let startPos = IsometricUtils.gridToScreen(col: 7, row: 7)
+        sprite.position = CGPoint(x: startPos.x, y: startPos.y + 20)
         sprite.zPosition = IsometricConstants.effectLayer + 200
 
-        // Idle bob animation
+        // Gentle idle bob animation
         let bob = SKAction.repeatForever(SKAction.sequence([
-            SKAction.moveBy(x: 0, y: 3, duration: 0.8),
-            SKAction.moveBy(x: 0, y: -3, duration: 0.8)
+            SKAction.moveBy(x: 0, y: 4, duration: 1.0),
+            SKAction.moveBy(x: 0, y: -4, duration: 1.0)
         ]))
+        bob.timingMode = .easeInEaseOut
         sprite.run(bob, withKey: "idle")
 
         guideLayer.addChild(sprite)
         guideSprite = sprite
+
+        // Show welcome message after a short delay, auto-dismiss after 6 seconds
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            self?.gameState.guideMessage = "Welcome! Tap BUILD below to place your first server rack."
+            self?.gameState.guideVisible = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) { [weak self] in
+            self?.gameState.guideVisible = false
+        }
     }
 
     private func updateGuideWander(dt: TimeInterval) {
@@ -222,17 +280,26 @@ final class GameScene: SKScene {
         guard guideWanderTimer >= guideWanderInterval else { return }
         guideWanderTimer = 0
 
-        // Pick a random walkable grid position
-        let col = Int.random(in: 0..<gameState.gridWidth)
-        let row = Int.random(in: 0..<gameState.gridHeight)
-        // Skip occupied tiles
-        let pos = GridPosition(col: col, row: row)
-        guard gameState.placedEquipment[pos] == nil else { return }
+        // Pick a random walkable grid position within all unlocked tiles
+        var candidates: [GridPosition] = []
+        for col in 0..<gameState.gridWidth {
+            for row in 0..<gameState.gridHeight {
+                let pos = GridPosition(col: col, row: row)
+                if gameState.isUnlockedTile(col: col, row: row) && gameState.placedEquipment[pos] == nil {
+                    candidates.append(pos)
+                }
+            }
+        }
+        guard let chosen = candidates.randomElement() else { return }
+        let col = chosen.col
+        let row = chosen.row
 
         let target = IsometricUtils.gridToScreen(col: col, row: row)
-        let dest = CGPoint(x: target.x, y: target.y + 10)
+        let dest = CGPoint(x: target.x, y: target.y + 20)
 
-        guideSprite?.run(SKAction.move(to: dest, duration: 1.5))
+        let moveAction = SKAction.move(to: dest, duration: 3.0)
+        moveAction.timingMode = .easeInEaseOut
+        guideSprite?.run(moveAction)
     }
 
     // MARK: - Particle Effects
