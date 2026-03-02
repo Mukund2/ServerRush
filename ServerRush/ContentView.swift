@@ -36,6 +36,7 @@ struct ContentView: View {
         ZStack {
             SpriteView(scene: makeScene(), preferredFramesPerSecond: 60)
                 .ignoresSafeArea()
+                .id("gameScene")  // Stable identity — don't recreate on state changes
 
             VStack(spacing: 0) {
                 HUDView(gameState: gameState)

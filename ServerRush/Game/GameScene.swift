@@ -75,7 +75,12 @@ final class GameScene: SKScene {
 
     // MARK: - Scene Lifecycle
 
+    private var didSetup = false
+
     override func didMove(to view: SKView) {
+        guard !didSetup else { return }
+        didSetup = true
+
         backgroundColor = Theme.skBackground
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
 
