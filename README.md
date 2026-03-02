@@ -1,8 +1,22 @@
 # Server Rush
 
-**A cozy data center tycoon where incidents are the star of the show.**
+## Why This Exists
 
-Build server racks, keep them cool, power them up — then firefight a nonstop stream of crises by dragging the right tool onto the right rack before everything melts down. Think Hay Day meets a server room.
+The data center industry is in crisis. Nearly **two-thirds of operators** report difficulty finding and retaining qualified staff. The AI boom demands **tens of thousands more engineers**, with global data center demand projected to grow over **20% by 2030** — yet the construction workforce alone faces a projected shortage of **3.2 million workers** by the end of the decade. The people who will fill these roles are teenagers right now, and they've never thought about what happens inside the buildings that power every app on their phone.
+
+Video games are how the next generation discovers what they care about. Hay Day made a generation romanticize farming. City builders made kids dream about urban planning. Server Rush does the same for data infrastructure — it takes the invisible backbone of the internet and turns it into something you can see, touch, and fall in love with. If we want to close a workforce gap of millions, we need to start by making the work feel exciting. That starts with play.
+
+> Sources: [Uptime Institute Global Data Center Survey 2025](https://uptimeinstitute.com/resources/research-and-reports/uptime-institute-global-data-center-survey-results-2025) · [IEEE Spectrum](https://spectrum.ieee.org/ai-data-centers-engineers-jobs) · [Brookings](https://www.brookings.edu/articles/the-future-of-data-centers/)
+
+---
+
+## What Is Server Rush
+
+**A cozy data center tycoon where incidents are the star of the show.** Inspired by the charm of **Hay Day** and **Stardew Valley**, it swaps crops and barns for server racks and cooling units — warm earth tones, bouncy animations, and a world that grows with you as you expand from a single closet into a sprawling facility.
+
+Build server racks, keep them cool, power them up — then firefight a nonstop stream of crises by dragging the right tool onto the right rack before everything melts down.
+
+An AI guide character named Chip roams your data center, powered by **Mistral AI**. He reacts to what's happening in real time — warning you about incidents, celebrating milestones, and answering questions when you tap him. His voice is brought to life by **ElevenLabs**, giving Chip a distinct spoken personality that makes the experience feel alive rather than text-on-screen.
 
 Built for the **Mistral AI Worldwide Hackathon** (Feb 28 – Mar 1, 2026).
 
@@ -69,7 +83,7 @@ SwiftUI (HUD, menus, guide)  <-->  GameState (@Observable)  <-->  SpriteKit (iso
 | **Input** | `InputHandler`, `CameraController` | Tap-to-select, drag-to-build, drag-to-fix, pinch zoom + pan |
 | **Rendering** | `IsometricUtils` (TextureFactory) | Programmatic isometric sprites with per-category visual details |
 | **Models** | `GameState`, `Equipment`, `Incident`, `Level` | All game data, equipment stats, incident definitions, milestones |
-| **Services** | `MistralService`, `AudioManager` | Mistral API for Chip + haptic feedback |
+| **Services** | `MistralService`, `ElevenLabsService`, `AudioManager`, `SoundEngine` | Mistral API for Chip + ElevenLabs TTS + haptics + procedural sound effects |
 | **Views** | `ContentView`, `HUDView`, `BuildMenuView`, `RackInfoView`, etc. | SwiftUI overlay system |
 | **Design** | `Theme` | Centralized color palette, fonts, spacing |
 
@@ -91,7 +105,9 @@ ServerRush/
     Level.swift                Milestone definitions and progression
   Services/
     MistralService.swift       Mistral API integration for Chip
+    ElevenLabsService.swift    ElevenLabs TTS for Chip's voice
     AudioManager.swift         Haptic feedback patterns
+    SoundEngine.swift          Procedural sound synthesis (AVAudioEngine)
   Views/
     ContentView.swift          Root view, phase-based routing
     MainMenuView.swift         Title screen with server illustration
@@ -139,6 +155,8 @@ Fonts use SF Pro Rounded throughout (monospaced only for the money counter).
 - **SwiftUI** — all UI overlays (HUD, menus, modals)
 - **@Observable** (iOS 17+) — reactive state management
 - **Mistral AI API** — `mistral-small-latest` for Chip's dialogue
+- **ElevenLabs API** — text-to-speech for Chip's voice
+- **AVAudioEngine** — procedural sound effects (13 synthesized sounds, zero asset files)
 - **XcodeGen** — project generation from `project.yml`
 - **UserDefaults** — JSON-encoded save/load
 
