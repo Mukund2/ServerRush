@@ -208,21 +208,20 @@ enum TextureFactory {
             gc.setFillColor(woodColor.darker(by: 0.1).cgColor)
             gc.addPath(woodRight); gc.fillPath()
 
-            // --- LED dots for racks (sage green) ---
-            if type.category == .rack {
-                let ledColor: UIColor
-                switch status {
-                case .normal: ledColor = Theme.skPositive              // warm sage green
-                case .warning: ledColor = Theme.skWarning              // warm gold
-                case .critical, .offline: ledColor = Theme.skCritical  // warm rust
-                }
-                gc.setFillColor(ledColor.cgColor)
-                let ledSize: CGFloat = 3
-                for i in 0..<2 {
-                    let ly = baseY + hh * 0.4 + CGFloat(i) * (blockHeight * 0.35)
-                    let lx: CGFloat = hw * 0.35
-                    gc.fillEllipse(in: CGRect(x: lx, y: ly, width: ledSize, height: ledSize))
-                }
+            // --- Category-specific details ---
+            switch type.category {
+            case .rack:
+                drawRackDetails(gc: gc, type: type, status: status,
+                                baseY: baseY, hh: hh, hw: hw, totalH: totalH, blockHeight: blockHeight)
+            case .cooling:
+                drawCoolingDetails(gc: gc, type: type,
+                                   baseY: baseY, hh: hh, hw: hw, totalH: totalH, blockHeight: blockHeight)
+            case .power:
+                drawPowerDetails(gc: gc, type: type,
+                                 baseY: baseY, hh: hh, hw: hw, totalH: totalH, blockHeight: blockHeight)
+            case .network:
+                drawNetworkDetails(gc: gc, type: type,
+                                   baseY: baseY, hh: hh, hw: hw, totalH: totalH, blockHeight: blockHeight)
             }
 
             // Soft edge outlines (warm brown, not black)
@@ -411,6 +410,316 @@ enum TextureFactory {
             nsStr.draw(at: CGPoint(x: textX, y: textY), withAttributes: attrs)
         }
         return SKTexture(image: image)
+    }
+
+    // MARK: - Equipment Detail Helpers
+
+    /// Interpolate a point on the left face at vertical fraction `f` (0=top, 1=bottom)
+    /// and horizontal fraction `t` (0=left edge, 1=center spine).
+    private static func leftFacePoint(f: CGFloat, t: CGFloat,
+                                      baseY: CGFloat, hh: CGFloat,
+                                      totalH: CGFloat, hw: CGFloat) -> CGPoint {
+        // Left face corners: topLeft(0, baseY), topRight(hw, baseY+hh),
+        //                    bottomRight(hw, totalH), bottomLeft(0, totalH-hh)
+        let leftTop  = CGPoint(x: 0, y: baseY)
+        let rightTop = CGPoint(x: hw, y: baseY + hh)
+        let rightBot = CGPoint(x: hw, y: totalH)
+        let leftBot  = CGPoint(x: 0, y: totalH - hh)
+        // Lerp left edge and right edge vertically, then lerp horizontally
+        let le = CGPoint(x: leftTop.x + (leftBot.x - leftTop.x) * f,
+                         y: leftTop.y + (leftBot.y - leftTop.y) * f)
+        let re = CGPoint(x: rightTop.x + (rightBot.x - rightTop.x) * f,
+                         y: rightTop.y + (rightBot.y - rightTop.y) * f)
+        return CGPoint(x: le.x + (re.x - le.x) * t,
+                       y: le.y + (re.y - le.y) * t)
+    }
+
+    /// Interpolate a point on the right face at vertical fraction `f` (0=top, 1=bottom)
+    /// and horizontal fraction `t` (0=center spine, 1=right edge).
+    private static func rightFacePoint(f: CGFloat, t: CGFloat,
+                                       baseY: CGFloat, hh: CGFloat,
+                                       totalH: CGFloat, hw: CGFloat) -> CGPoint {
+        let leftTop  = CGPoint(x: hw, y: baseY + hh)
+        let rightTop = CGPoint(x: hw * 2, y: baseY)
+        let rightBot = CGPoint(x: hw * 2, y: totalH - hh)
+        let leftBot  = CGPoint(x: hw, y: totalH)
+        let le = CGPoint(x: leftTop.x + (leftBot.x - leftTop.x) * f,
+                         y: leftTop.y + (leftBot.y - leftTop.y) * f)
+        let re = CGPoint(x: rightTop.x + (rightBot.x - rightTop.x) * f,
+                         y: rightTop.y + (rightBot.y - rightTop.y) * f)
+        return CGPoint(x: le.x + (re.x - le.x) * t,
+                       y: le.y + (re.y - le.y) * t)
+    }
+
+    /// Interpolate a point on the top face at fractions `fx` (left-to-right) and `fy` (back-to-front).
+    private static func topFacePoint(fx: CGFloat, fy: CGFloat,
+                                     baseY: CGFloat, hh: CGFloat, hw: CGFloat) -> CGPoint {
+        // Top face: top(hw, baseY-hh), right(2*hw, baseY), bottom(hw, baseY+hh), left(0, baseY)
+        let topPt    = CGPoint(x: hw, y: baseY - hh)
+        let rightPt  = CGPoint(x: hw * 2, y: baseY)
+        let bottomPt = CGPoint(x: hw, y: baseY + hh)
+        let leftPt   = CGPoint(x: 0, y: baseY)
+        // Bilinear interpolation on the diamond
+        let leftEdge  = CGPoint(x: topPt.x + (leftPt.x - topPt.x) * fx,
+                                y: topPt.y + (leftPt.y - topPt.y) * fx)
+        let rightEdge = CGPoint(x: topPt.x + (rightPt.x - topPt.x) * fx,
+                                y: topPt.y + (rightPt.y - topPt.y) * fx)
+        // Wait — diamond interpolation needs proper bilinear. Use parametric approach:
+        // Point = (1-fx)*(1-fy)*top + fx*(1-fy)*left + (1-fx)*fy*right + fx*fy*bottom
+        let x = (1 - fx) * (1 - fy) * topPt.x + fx * (1 - fy) * leftPt.x +
+                (1 - fx) * fy * rightPt.x + fx * fy * bottomPt.x
+        let y = (1 - fx) * (1 - fy) * topPt.y + fx * (1 - fy) * leftPt.y +
+                (1 - fx) * fy * rightPt.y + fx * fy * bottomPt.y
+        return CGPoint(x: x, y: y)
+    }
+
+    // MARK: Rack Details
+
+    private static func drawRackDetails(gc: CGContext, type: EquipmentType, status: EquipmentStatus,
+                                        baseY: CGFloat, hh: CGFloat, hw: CGFloat,
+                                        totalH: CGFloat, blockHeight: CGFloat) {
+        let tier = type.tier
+        let lineColor = UIColor(red: 0.35, green: 0.30, blue: 0.25, alpha: 0.3)
+
+        // Left face: horizontal shelf dividers
+        let shelfCount = tier  // 1, 2, or 3 shelves
+        gc.setStrokeColor(lineColor.cgColor)
+        gc.setLineWidth(0.75)
+        for i in 1...shelfCount {
+            let f = CGFloat(i) / CGFloat(shelfCount + 1)
+            let p0 = leftFacePoint(f: f, t: 0.05, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let p1 = leftFacePoint(f: f, t: 0.95, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            gc.move(to: p0)
+            gc.addLine(to: p1)
+        }
+        gc.strokePath()
+
+        // Left face: LED dots in each bay
+        let ledColor: UIColor
+        switch status {
+        case .normal: ledColor = Theme.skPositive
+        case .warning: ledColor = Theme.skWarning
+        case .critical, .offline: ledColor = Theme.skCritical
+        }
+        gc.setFillColor(ledColor.cgColor)
+        let ledSize: CGFloat = 2.5
+        for i in 0...shelfCount {
+            let f = (CGFloat(i) + 0.5) / CGFloat(shelfCount + 1)
+            let p = leftFacePoint(f: f, t: 0.2, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            gc.fillEllipse(in: CGRect(x: p.x - ledSize / 2, y: p.y - ledSize / 2,
+                                      width: ledSize, height: ledSize))
+        }
+
+        // Right face: ventilation slit lines
+        let ventCount = 1 + tier  // 2, 3, or 4 vents
+        gc.setStrokeColor(UIColor(red: 0.30, green: 0.28, blue: 0.22, alpha: 0.2).cgColor)
+        gc.setLineWidth(0.5)
+        for i in 1...ventCount {
+            let f = CGFloat(i) / CGFloat(ventCount + 1)
+            let p0 = rightFacePoint(f: f, t: 0.3, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let p1 = rightFacePoint(f: f, t: 0.85, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            gc.move(to: p0)
+            gc.addLine(to: p1)
+        }
+        gc.strokePath()
+    }
+
+    // MARK: Cooling Details
+
+    private static func drawCoolingDetails(gc: CGContext, type: EquipmentType,
+                                           baseY: CGFloat, hh: CGFloat, hw: CGFloat,
+                                           totalH: CGFloat, blockHeight: CGFloat) {
+        let tier = type.tier
+        let detailColor = UIColor(red: 0.35, green: 0.45, blue: 0.40, alpha: 0.4)
+
+        // Top face: fan circle(s)
+        let fanCount = tier == 3 ? 2 : 1
+        for fi in 0..<fanCount {
+            let cx: CGFloat
+            let cy: CGFloat
+            if fanCount == 1 {
+                let center = topFacePoint(fx: 0.5, fy: 0.5, baseY: baseY, hh: hh, hw: hw)
+                cx = center.x; cy = center.y
+            } else {
+                // Two fans: left and right of center
+                let offset: CGFloat = fi == 0 ? 0.35 : 0.65
+                let center = topFacePoint(fx: 0.5, fy: offset, baseY: baseY, hh: hh, hw: hw)
+                cx = center.x; cy = center.y
+            }
+            let fanRadius: CGFloat = fanCount == 1 ? min(hh * 0.5, hw * 0.2) : min(hh * 0.35, hw * 0.15)
+
+            // Fan circle (isometric — draw as ellipse squashed vertically)
+            gc.setStrokeColor(detailColor.cgColor)
+            gc.setLineWidth(0.75)
+            let ellipseRect = CGRect(x: cx - fanRadius, y: cy - fanRadius * 0.55,
+                                     width: fanRadius * 2, height: fanRadius * 1.1)
+            gc.strokeEllipse(in: ellipseRect)
+
+            // Hub dot
+            gc.setFillColor(detailColor.cgColor)
+            let hubR: CGFloat = 1.5
+            gc.fillEllipse(in: CGRect(x: cx - hubR, y: cy - hubR, width: hubR * 2, height: hubR * 2))
+
+            // Blade cross
+            gc.setLineWidth(0.5)
+            gc.move(to: CGPoint(x: cx - fanRadius * 0.6, y: cy))
+            gc.addLine(to: CGPoint(x: cx + fanRadius * 0.6, y: cy))
+            gc.move(to: CGPoint(x: cx, y: cy - fanRadius * 0.35))
+            gc.addLine(to: CGPoint(x: cx, y: cy + fanRadius * 0.35))
+            gc.strokePath()
+        }
+
+        // Left face: grille lines
+        let grilleCount = 2 + tier  // 3, 4, or 5
+        gc.setStrokeColor(detailColor.cgColor)
+        gc.setLineWidth(0.5)
+        for i in 1...grilleCount {
+            let f = CGFloat(i) / CGFloat(grilleCount + 1)
+            let p0 = leftFacePoint(f: f, t: 0.1, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let p1 = leftFacePoint(f: f, t: 0.9, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            gc.move(to: p0)
+            gc.addLine(to: p1)
+        }
+        gc.strokePath()
+    }
+
+    // MARK: Power Details
+
+    private static func drawPowerDetails(gc: CGContext, type: EquipmentType,
+                                         baseY: CGFloat, hh: CGFloat, hw: CGFloat,
+                                         totalH: CGFloat, blockHeight: CGFloat) {
+        let tier = type.tier
+        let detailColor = UIColor(red: 0.55, green: 0.42, blue: 0.20, alpha: 0.5)
+
+        // Top face: lightning bolt zigzag
+        let boltStart = topFacePoint(fx: 0.35, fy: 0.35, baseY: baseY, hh: hh, hw: hw)
+        let boltMid1  = topFacePoint(fx: 0.55, fy: 0.50, baseY: baseY, hh: hh, hw: hw)
+        let boltMid2  = topFacePoint(fx: 0.40, fy: 0.55, baseY: baseY, hh: hh, hw: hw)
+        let boltEnd   = topFacePoint(fx: 0.65, fy: 0.70, baseY: baseY, hh: hh, hw: hw)
+        gc.setStrokeColor(detailColor.cgColor)
+        gc.setLineWidth(1.0)
+        gc.move(to: boltStart)
+        gc.addLine(to: boltMid1)
+        gc.addLine(to: boltMid2)
+        gc.addLine(to: boltEnd)
+        gc.strokePath()
+
+        // Left face: recessed panel rectangle
+        let panelTL = leftFacePoint(f: 0.15, t: 0.15, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let panelTR = leftFacePoint(f: 0.15, t: 0.85, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let panelBR = leftFacePoint(f: 0.65, t: 0.85, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let panelBL = leftFacePoint(f: 0.65, t: 0.15, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        gc.setStrokeColor(detailColor.cgColor)
+        gc.setLineWidth(0.5)
+        gc.move(to: panelTL)
+        gc.addLine(to: panelTR)
+        gc.addLine(to: panelBR)
+        gc.addLine(to: panelBL)
+        gc.closePath()
+        gc.strokePath()
+
+        // Left face: gauge circle inside panel
+        let gaugeCenter = leftFacePoint(f: 0.35, t: 0.5, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let gaugeR: CGFloat = 3.0
+        gc.strokeEllipse(in: CGRect(x: gaugeCenter.x - gaugeR, y: gaugeCenter.y - gaugeR,
+                                    width: gaugeR * 2, height: gaugeR * 2))
+        // Needle
+        gc.move(to: gaugeCenter)
+        gc.addLine(to: CGPoint(x: gaugeCenter.x + gaugeR * 0.7, y: gaugeCenter.y - gaugeR * 0.5))
+        gc.strokePath()
+
+        // Tier 2+: battery indicator bar below gauge
+        if tier >= 2 {
+            let barLeft  = leftFacePoint(f: 0.52, t: 0.25, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let barRight = leftFacePoint(f: 0.52, t: 0.75, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            // Bar outline
+            gc.setStrokeColor(detailColor.cgColor)
+            gc.setLineWidth(0.5)
+            let barH: CGFloat = 2.5
+            gc.stroke(CGRect(x: barLeft.x, y: barLeft.y, width: barRight.x - barLeft.x, height: barH))
+            // Fill ~70%
+            gc.setFillColor(Theme.skPositive.withAlphaComponent(0.5).cgColor)
+            gc.fill(CGRect(x: barLeft.x + 0.5, y: barLeft.y + 0.5,
+                           width: (barRight.x - barLeft.x - 1) * 0.7, height: barH - 1))
+        }
+
+        // Tier 3: second indicator + right-face vent lines
+        if tier >= 3 {
+            let bar2Left  = leftFacePoint(f: 0.58, t: 0.25, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let bar2Right = leftFacePoint(f: 0.58, t: 0.75, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            gc.setStrokeColor(detailColor.cgColor)
+            gc.stroke(CGRect(x: bar2Left.x, y: bar2Left.y,
+                             width: bar2Right.x - bar2Left.x, height: 2.5))
+            gc.setFillColor(Theme.skWarning.withAlphaComponent(0.5).cgColor)
+            gc.fill(CGRect(x: bar2Left.x + 0.5, y: bar2Left.y + 0.5,
+                           width: (bar2Right.x - bar2Left.x - 1) * 0.5, height: 1.5))
+
+            // Right face vents
+            gc.setStrokeColor(UIColor(red: 0.50, green: 0.38, blue: 0.18, alpha: 0.25).cgColor)
+            gc.setLineWidth(0.5)
+            for i in 1...3 {
+                let f = CGFloat(i) / 4.0
+                let p0 = rightFacePoint(f: f, t: 0.25, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+                let p1 = rightFacePoint(f: f, t: 0.80, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+                gc.move(to: p0)
+                gc.addLine(to: p1)
+            }
+            gc.strokePath()
+        }
+    }
+
+    // MARK: Network Details
+
+    private static func drawNetworkDetails(gc: CGContext, type: EquipmentType,
+                                           baseY: CGFloat, hh: CGFloat, hw: CGFloat,
+                                           totalH: CGFloat, blockHeight: CGFloat) {
+        let tier = type.tier
+        let detailColor = UIColor(red: 0.45, green: 0.35, blue: 0.28, alpha: 0.4)
+
+        // Left face: port grid (small rectangles)
+        let rows = tier  // 1, 2, or 3 rows
+        let cols = 3
+        let portW: CGFloat = 2.0
+        let portH: CGFloat = 1.5
+        gc.setFillColor(detailColor.cgColor)
+        for r in 0..<rows {
+            let fY = 0.25 + CGFloat(r) * 0.22
+            for c in 0..<cols {
+                let fX = 0.2 + CGFloat(c) * 0.25
+                let p = leftFacePoint(f: fY, t: fX, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+                gc.fill(CGRect(x: p.x - portW / 2, y: p.y - portH / 2, width: portW, height: portH))
+            }
+        }
+
+        // One port highlighted green (active link)
+        let activePort = leftFacePoint(f: 0.25, t: 0.2, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        gc.setFillColor(Theme.skPositive.withAlphaComponent(0.7).cgColor)
+        gc.fill(CGRect(x: activePort.x - portW / 2, y: activePort.y - portH / 2,
+                       width: portW, height: portH))
+
+        // Status LED dot
+        let ledPos = leftFacePoint(f: 0.7, t: 0.2, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        gc.setFillColor(Theme.skPositive.cgColor)
+        gc.fillEllipse(in: CGRect(x: ledPos.x - 1.5, y: ledPos.y - 1.5, width: 3, height: 3))
+
+        // Top face: antenna stub(s) for tier 2+
+        if tier >= 2 {
+            let antennaCount = tier == 3 ? 2 : 1
+            for ai in 0..<antennaCount {
+                let fy: CGFloat = antennaCount == 1 ? 0.5 : (ai == 0 ? 0.35 : 0.65)
+                let antennaBase = topFacePoint(fx: 0.3, fy: fy, baseY: baseY, hh: hh, hw: hw)
+                let antennaTop = CGPoint(x: antennaBase.x, y: antennaBase.y - 5)
+                gc.setStrokeColor(detailColor.cgColor)
+                gc.setLineWidth(1.0)
+                gc.move(to: antennaBase)
+                gc.addLine(to: antennaTop)
+                gc.strokePath()
+                // Ball tip
+                gc.setFillColor(detailColor.cgColor)
+                gc.fillEllipse(in: CGRect(x: antennaTop.x - 1.5, y: antennaTop.y - 1.5,
+                                          width: 3, height: 3))
+            }
+        }
     }
 
     // MARK: Tool Icon

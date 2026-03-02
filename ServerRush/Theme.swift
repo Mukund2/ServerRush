@@ -34,9 +34,9 @@ enum Theme {
     // MARK: - Equipment Category Colors (SpriteKit)
 
     static let skRackColor      = SKColor(red: 0.65, green: 0.68, blue: 0.62, alpha: 1)   // warm gray
-    static let skCoolingColor   = SKColor(red: 0.68, green: 0.80, blue: 0.88, alpha: 1)   // soft pastel blue
+    static let skCoolingColor   = SKColor(red: 0.62, green: 0.78, blue: 0.72, alpha: 1)   // warm sage-teal
     static let skPowerColor     = SKColor(red: 0.88, green: 0.75, blue: 0.45, alpha: 1)   // warm amber
-    static let skNetworkColor   = SKColor(red: 0.75, green: 0.65, blue: 0.85, alpha: 1)   // soft lavender
+    static let skNetworkColor   = SKColor(red: 0.72, green: 0.62, blue: 0.55, alpha: 1)   // warm clay
 
     // MARK: - Fonts (SwiftUI)
 
