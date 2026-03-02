@@ -69,6 +69,23 @@ struct ContentView: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
                 .animation(.spring(response: 0.35, dampingFraction: 0.8), value: gameState.selectedTile)
             }
+
+            // Expansion confirmation overlay
+            if let zone = gameState.pendingExpansion {
+                Color.black.opacity(0.3)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        gameState.cancelExpansion()
+                    }
+
+                ExpansionConfirmView(gameState: gameState, zone: zone) {
+                    gameState.confirmExpansion()
+                    gameScene?.rebuildFloorGrid()
+                    AudioManager.shared.playExpansionUnlock()
+                }
+                .transition(.scale.combined(with: .opacity))
+                .animation(.spring(response: 0.35, dampingFraction: 0.8), value: gameState.pendingExpansion != nil)
+            }
         }
     }
 

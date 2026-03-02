@@ -24,6 +24,7 @@
 		8AAE135159A3881380250E0D /* LevelCompleteView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFBD7361ED753E238F27BD4C /* LevelCompleteView.swift */; };
 		903AF1A3C62A4477C4D87D40 /* Incident.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F7244EB85367BD8B1E01264 /* Incident.swift */; };
 		A7EE27DF26061473DABDD20E /* HUDView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 702D3F7C40C6B424FD108DFD /* HUDView.swift */; };
+		AF0CF5689E088592A9E425C9 /* ExpansionConfirmView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88F8833CDF28A21E881FD32D /* ExpansionConfirmView.swift */; };
 		C60BAFC2073D1BDE15D51F82 /* MainMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D466B5FB3A94EF8318AAE93A /* MainMenuView.swift */; };
 		C67A4216A53768BE307A859E /* InputHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43695B8DE8CF04DC7EE1EB89 /* InputHandler.swift */; };
 		E3EB40BD400CDC9AA24E1FA5 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40AB67074E75AC219BEFCADF /* Theme.swift */; };
@@ -44,6 +45,7 @@
 		6DA726CCCB45ABCA4FCCEA10 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		702D3F7C40C6B424FD108DFD /* HUDView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HUDView.swift; sourceTree = "<group>"; };
 		7CD2263F6BEF05E8FC8D965E /* Level.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Level.swift; sourceTree = "<group>"; };
+		88F8833CDF28A21E881FD32D /* ExpansionConfirmView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpansionConfirmView.swift; sourceTree = "<group>"; };
 		8CC5E25C304759ADD0435FC7 /* RackInfoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RackInfoView.swift; sourceTree = "<group>"; };
 		9DA7419813C4EB1E513B017E /* MistralService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MistralService.swift; sourceTree = "<group>"; };
 		AFBD7361ED753E238F27BD4C /* LevelCompleteView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LevelCompleteView.swift; sourceTree = "<group>"; };
@@ -80,6 +82,7 @@
 			children = (
 				B55BAFDEB9B8FA1EDA7627E3 /* AIGuideView.swift */,
 				AFDE7DBE4F000998D6C5CA96 /* BuildMenuView.swift */,
+				88F8833CDF28A21E881FD32D /* ExpansionConfirmView.swift */,
 				702D3F7C40C6B424FD108DFD /* HUDView.swift */,
 				DE6D62085F821D36EED53E27 /* IncidentAlertView.swift */,
 				AFBD7361ED753E238F27BD4C /* LevelCompleteView.swift */,
@@ -209,6 +212,7 @@
 				3A84B7170581D9C3B47FEEB5 /* CameraController.swift in Sources */,
 				2C36CEB233D016DEC5B503BD /* ContentView.swift in Sources */,
 				EBA5EAD926FEEA8B9102F107 /* Equipment.swift in Sources */,
+				AF0CF5689E088592A9E425C9 /* ExpansionConfirmView.swift in Sources */,
 				1BB899C22ED5BDCCF009BF03 /* GameScene.swift in Sources */,
 				2091A07C530AF107F7B0FC12 /* GameState.swift in Sources */,
 				A7EE27DF26061473DABDD20E /* HUDView.swift in Sources */,
@@ -238,8 +242,7 @@
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_IDENTITY = "";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Server Rush";
+				INFOPLIST_FILE = ServerRush/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -295,9 +298,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UIStatusBarHidden = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -317,8 +317,7 @@
 				CODE_SIGNING_ALLOWED = NO;
 				CODE_SIGNING_REQUIRED = NO;
 				CODE_SIGN_IDENTITY = "";
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = "Server Rush";
+				INFOPLIST_FILE = ServerRush/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -380,9 +379,6 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
-				INFOPLIST_KEY_UIStatusBarHidden = YES;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;

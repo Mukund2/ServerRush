@@ -113,13 +113,9 @@ final class InputHandler {
         case .selecting, .idle:
             let gridPos = IsometricUtils.screenToGridPosition(point: scenePoint)
 
-            // Check if tapping an expansion zone border tile
+            // Check if tapping an expansion zone border tile — show confirmation
             if let zone = findExpansionZone(at: gridPos) {
-                if gs.money >= zone.cost {
-                    gs.purchaseExpansion(zone)
-                    scene.rebuildFloorGrid()
-                    AudioManager.shared.playExpansionUnlock()
-                }
+                gs.pendingExpansion = zone
                 self.state = .idle
                 return
             }

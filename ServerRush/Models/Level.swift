@@ -17,14 +17,14 @@ enum ExpansionDefinition {
     /// Ordered list of all milestones. Checked in order; the first unachieved one whose condition is met fires.
     static let allMilestones: [MilestoneDef] = [
         MilestoneDef(
-            type: .firstBuild,
-            key: "firstBuild",
-            check: { !$0.placedEquipment.isEmpty }
+            type: .equipmentPlaced(3),
+            key: "equipment_3",
+            check: { $0.totalEquipmentPlaced >= 3 }
         ),
         MilestoneDef(
-            type: .revenueTarget(500),
-            key: "revenue_500",
-            check: { $0.totalMoneyEarned >= 500 }
+            type: .revenueTarget(1000),
+            key: "revenue_1000",
+            check: { $0.totalMoneyEarned >= 1000 }
         ),
         MilestoneDef(
             type: .incidentsMastered(5),
@@ -89,11 +89,11 @@ enum ExpansionDefinition {
             guard !state.achievedMilestones.contains(def.key) else { continue }
 
             switch def.type {
-            case .firstBuild:
+            case .equipmentPlaced(let target):
                 return Objective(
-                    description: "Place your first server rack",
-                    targetValue: 1,
-                    currentValue: state.placedEquipment.isEmpty ? 0 : 1
+                    description: "Build \(target) equipment",
+                    targetValue: Double(target),
+                    currentValue: Double(state.totalEquipmentPlaced)
                 )
             case .revenueTarget(let target):
                 return Objective(

@@ -19,7 +19,7 @@ struct BuildMenuView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Build mode cancel bar
+            // Build mode cancel bar (show on top when placing)
             if gameState.buildMode != nil {
                 buildModeBar
             }
@@ -27,22 +27,24 @@ struct BuildMenuView: View {
             // Collapse handle
             collapseHandle
 
-            if isExpanded {
+            if isExpanded && gameState.buildMode == nil {
                 VStack(spacing: 0) {
                     categoryTabs
                     equipmentList
                 }
-                .padding(.bottom, 8)
+                .padding(.bottom, 6)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Theme.background.opacity(0.95))
-                .shadow(color: Theme.woodTone.opacity(0.2), radius: 10, y: -4)
+                .shadow(color: Theme.woodTone.opacity(0.2), radius: 8, y: -3)
         )
         .padding(.horizontal, 8)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isExpanded)
+        .padding(.bottom, 4)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isExpanded)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: gameState.buildMode == nil)
     }
 
     // MARK: - Build Mode Bar
@@ -86,23 +88,22 @@ struct BuildMenuView: View {
             UIImpactFeedbackGenerator(style: .light).impactOccurred()
             isExpanded.toggle()
         } label: {
-            VStack(spacing: 4) {
-                // Wood-tone handle
+            VStack(spacing: 2) {
                 Capsule()
-                    .fill(Theme.woodTone.opacity(0.5))
-                    .frame(width: 36, height: 5)
-                    .padding(.top, 8)
+                    .fill(Theme.woodTone.opacity(0.4))
+                    .frame(width: 32, height: 4)
+                    .padding(.top, 6)
 
-                HStack(spacing: 6) {
+                HStack(spacing: 5) {
                     Image(systemName: "wrench.and.screwdriver.fill")
-                        .font(.system(size: 12))
+                        .font(.system(size: 10))
                     Text("BUILD")
-                        .font(Theme.headlineFont(size: 12))
+                        .font(Theme.headlineFont(size: 11))
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
-                        .font(.system(size: 10, weight: .bold))
+                        .font(.system(size: 9, weight: .bold))
                 }
                 .foregroundStyle(Theme.textPrimary)
-                .padding(.bottom, 6)
+                .padding(.bottom, 4)
             }
         }
     }
@@ -110,7 +111,7 @@ struct BuildMenuView: View {
     // MARK: - Category Tabs
 
     private var categoryTabs: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 6) {
             ForEach(categories, id: \.self) { category in
                 let hasItems = !itemsForCategory(category).isEmpty
                 let isSelected = selectedCategory == category
@@ -120,17 +121,17 @@ struct BuildMenuView: View {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     selectedCategory = category
                 } label: {
-                    HStack(spacing: 4) {
+                    HStack(spacing: 3) {
                         Image(systemName: category.icon)
-                            .font(.system(size: 12))
+                            .font(.system(size: 10))
                         Text(category.rawValue)
-                            .font(Theme.bodyFont(size: 11))
+                            .font(Theme.bodyFont(size: 10))
                     }
                     .foregroundStyle(
                         isSelected ? .white : (hasItems ? Theme.textPrimary : Theme.textSecondary.opacity(0.4))
                     )
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 7)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
                     .background(
                         Capsule()
                             .fill(isSelected ? categoryColor(category) : Theme.cardBackground.opacity(0.6))
@@ -140,14 +141,14 @@ struct BuildMenuView: View {
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Equipment List
 
     private var equipmentList: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 ForEach(itemsForCategory(selectedCategory)) { item in
                     WarmEquipmentCard(type: item, canAfford: gameState.canAfford(item)) {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
@@ -155,8 +156,8 @@ struct BuildMenuView: View {
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 4)
         }
     }
 
@@ -174,34 +175,33 @@ private struct WarmEquipmentCard: View {
 
     var body: some View {
         Button(action: onTap) {
-            VStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Image(systemName: type.icon)
-                    .font(.system(size: 24))
+                    .font(.system(size: 20))
                     .foregroundStyle(canAfford ? Theme.accent : Theme.textSecondary.opacity(0.4))
+                    .frame(width: 24)
 
-                Text(type.displayName)
-                    .font(Theme.bodyFont(size: 11))
-                    .foregroundStyle(canAfford ? Theme.textPrimary : Theme.textSecondary.opacity(0.5))
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(type.displayName)
+                        .font(Theme.bodyFont(size: 11))
+                        .foregroundStyle(canAfford ? Theme.textPrimary : Theme.textSecondary.opacity(0.5))
+                        .lineLimit(1)
 
-                // Price with coin icon
-                HStack(spacing: 3) {
-                    Text("\u{1FA99}")
-                        .font(.system(size: 10))
-                    Text("$\(Int(type.cost))")
-                        .font(Theme.moneyFont(size: 12))
-                        .foregroundStyle(canAfford ? Theme.accentGold : Theme.critical.opacity(0.6))
+                    HStack(spacing: 3) {
+                        Text("$\(Int(type.cost))")
+                            .font(Theme.moneyFont(size: 11))
+                            .foregroundStyle(canAfford ? Theme.accentGold : Theme.critical.opacity(0.6))
+
+                        friendlyStatLine
+                    }
                 }
-
-                friendlyStatLine
             }
-            .frame(width: 95)
-            .padding(.vertical, 10)
-            .padding(.horizontal, 6)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
             .background(
-                RoundedRectangle(cornerRadius: 14)
+                RoundedRectangle(cornerRadius: 10)
                     .fill(Theme.cardBackground.opacity(canAfford ? 1 : 0.5))
-                    .shadow(color: Theme.woodTone.opacity(canAfford ? 0.12 : 0), radius: 4, y: 2)
+                    .shadow(color: Theme.woodTone.opacity(canAfford ? 0.12 : 0), radius: 3, y: 1)
             )
             .opacity(canAfford ? 1 : 0.6)
         }

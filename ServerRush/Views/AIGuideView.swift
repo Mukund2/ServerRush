@@ -9,85 +9,59 @@ struct AIGuideView: View {
     @State private var currentMessageID = UUID()
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 10) {
-            // Chip avatar
+        HStack(spacing: 8) {
+            // Chip avatar (smaller)
             ZStack {
                 Circle()
                     .fill(Theme.accent)
-                    .frame(width: 42, height: 42)
-                    .shadow(color: Theme.accent.opacity(0.3), radius: 4)
+                    .frame(width: 32, height: 32)
+                    .shadow(color: Theme.accent.opacity(0.3), radius: 3)
 
-                Text("\u{1F527}")
-                    .font(.system(size: 20))
+                Text("\u{1F9D1}\u{200D}\u{1F527}")
+                    .font(.system(size: 14))
             }
 
-            // Speech bubble with tail
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
+            // Compact speech bubble
+            HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Chip")
-                        .font(Theme.headlineFont(size: 11))
+                        .font(Theme.headlineFont(size: 10))
                         .foregroundStyle(Theme.accent)
 
-                    Spacer()
-
-                    // Chat button
-                    Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        gameState.showingGuideChat.toggle()
-                    } label: {
-                        Image(systemName: "bubble.left.and.bubble.right.fill")
-                            .font(.system(size: 11))
-                            .foregroundStyle(Theme.accent)
-                            .padding(6)
-                            .background(
-                                Capsule().fill(Theme.accent.opacity(0.12))
-                            )
-                    }
-
-                    // Dismiss
-                    Button {
-                        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        gameState.guideVisible = false
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundStyle(Theme.textSecondary)
-                    }
+                    Text(displayedText)
+                        .font(Theme.bodyFont(size: 12))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(3)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
 
-                Text(displayedText)
-                    .font(Theme.bodyFont(size: 13))
-                    .foregroundStyle(Theme.textPrimary)
-                    .lineSpacing(2)
+                Spacer(minLength: 4)
 
-                if isAnimating {
-                    HStack(spacing: 3) {
-                        ForEach(0..<3, id: \.self) { i in
-                            Circle()
-                                .fill(Theme.accent.opacity(0.5))
-                                .frame(width: 4, height: 4)
-                                .offset(y: isAnimating ? -2 : 2)
-                                .animation(
-                                    .easeInOut(duration: 0.4)
-                                        .repeatForever(autoreverses: true)
-                                        .delay(Double(i) * 0.15),
-                                    value: isAnimating
-                                )
-                        }
-                    }
+                // Dismiss
+                Button {
+                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    gameState.guideVisible = false
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(Theme.textSecondary)
+                        .padding(6)
+                        .background(Circle().fill(Theme.cardBackground))
                 }
             }
-            .padding(12)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous)
+                RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
                     .fill(Theme.background.opacity(0.95))
                     .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.lg, style: .continuous)
-                            .strokeBorder(Theme.woodTone.opacity(0.25), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
+                            .strokeBorder(Theme.woodTone.opacity(0.2), lineWidth: 1)
                     )
-                    .shadow(color: Theme.woodTone.opacity(0.15), radius: 6)
+                    .shadow(color: Theme.woodTone.opacity(0.1), radius: 4)
             )
         }
+        .frame(maxWidth: 400)
         .padding(.horizontal, 16)
         .onAppear { startTypewriter() }
         .onChange(of: message) { _, _ in startTypewriter() }

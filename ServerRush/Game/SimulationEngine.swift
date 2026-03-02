@@ -155,9 +155,13 @@ final class SimulationEngine {
     // MARK: - Milestones
 
     private func checkMilestones(_ state: GameState) {
+        // 30-second cooldown between milestones to prevent rapid-fire popups
+        guard state.playTime - state.lastMilestoneTime >= 30 else { return }
+
         if let milestone = ExpansionDefinition.checkMilestones(state: state),
            let key = ExpansionDefinition.key(for: milestone) {
             state.achievedMilestones.insert(key)
+            state.lastMilestoneTime = state.playTime
             state.phase = .milestone(milestone)
         }
     }

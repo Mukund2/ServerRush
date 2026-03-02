@@ -11,7 +11,7 @@ struct MilestoneView: View {
 
     private var titleText: String {
         switch milestoneType {
-        case .firstBuild: return "Amazing!"
+        case .equipmentPlaced: return "Nice Setup!"
         case .firstExpansion: return "Growing Fast!"
         case .expansionUnlocked: return "Well Done!"
         case .revenueTarget: return "Incredible!"
@@ -21,14 +21,14 @@ struct MilestoneView: View {
 
     private var subtitleText: String {
         switch milestoneType {
-        case .firstBuild:
-            return "You placed your first equipment!"
+        case .equipmentPlaced(let count):
+            return "You built \(count) pieces of equipment!"
         case .firstExpansion:
             return "Your data center is expanding!"
         case .expansionUnlocked(let zone):
             return "Expansion zone \(zone) unlocked!"
         case .revenueTarget(let amount):
-            return "You reached $\(Int(amount)) per second!"
+            return "You earned $\(Int(amount)) total!"
         case .incidentsMastered(let count):
             return "You resolved \(count) incidents!"
         }
@@ -36,11 +36,11 @@ struct MilestoneView: View {
 
     private var milestoneEmoji: String {
         switch milestoneType {
-        case .firstBuild: return "\u{1F3D7}"       // building construction
-        case .firstExpansion: return "\u{1F30D}"    // globe
-        case .expansionUnlocked: return "\u{1F513}" // unlocked
-        case .revenueTarget: return "\u{1F4B0}"     // money bag
-        case .incidentsMastered: return "\u{1F6E0}" // hammer and wrench
+        case .equipmentPlaced: return "\u{1F3D7}"   // building construction
+        case .firstExpansion: return "\u{1F30D}"     // globe
+        case .expansionUnlocked: return "\u{1F513}"  // unlocked
+        case .revenueTarget: return "\u{1F4B0}"      // money bag
+        case .incidentsMastered: return "\u{1F6E0}"  // hammer and wrench
         }
     }
 
@@ -136,7 +136,8 @@ struct MilestoneView: View {
                 statRow(icon: "square.grid.3x3", label: "Expansions", value: "\(gameState.unlockedExpansions.count)", color: Theme.accent)
                 statRow(icon: "server.rack", label: "Equipment", value: "\(gameState.placedEquipment.count)", color: Theme.textSecondary)
 
-            case .firstBuild:
+            case .equipmentPlaced:
+                statRow(icon: "server.rack", label: "Equipment", value: "\(gameState.totalEquipmentPlaced)", color: Theme.accent)
                 statRow(icon: "dollarsign.circle.fill", label: "Balance", value: "$\(Int(gameState.money))", color: Theme.accentGold)
             }
         }

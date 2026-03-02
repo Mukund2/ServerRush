@@ -10,21 +10,27 @@ settings:
   base:
     SWIFT_VERSION: "5.9"
     TARGETED_DEVICE_FAMILY: "1"
-    INFOPLIST_KEY_UILaunchScreen_Generation: true
-    INFOPLIST_KEY_UISupportedInterfaceOrientations: "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-    INFOPLIST_KEY_UIStatusBarHidden: true
 
 targets:
   ServerRush:
     type: application
     platform: iOS
     sources:
-      - ServerRush
+      - path: ServerRush
+        excludes:
+          - Info.plist
+    info:
+      path: ServerRush/Info.plist
+      properties:
+        UIRequiresFullScreen: true
+        UIStatusBarHidden: true
+        UILaunchScreen: {}
+        CFBundleDisplayName: Server Rush
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mukund.ServerRush
-        GENERATE_INFOPLIST_FILE: true
-        INFOPLIST_KEY_CFBundleDisplayName: "Server Rush"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_IDENTITY: ""
         CODE_SIGNING_REQUIRED: "NO"

@@ -13,29 +13,27 @@ struct MainMenuView: View {
 
             // Title
             titleSection
-                .padding(.bottom, 28)
 
             // Server illustration
             serverIllustration
-                .padding(.bottom, 36)
+                .padding(.top, 16)
 
-            // Start / Continue buttons
-            actionButtons
-                .padding(.bottom, 20)
-
-            // Stats summary
+            // Stats (if save exists)
             if gameState.hasSaveData {
                 statsSection
-                    .padding(.bottom, 16)
+                    .padding(.top, 16)
             }
 
             Spacer()
 
-            // Version
-            Text("v1.0  -  Swift Student Challenge 2026")
+            // Action buttons
+            actionButtons
+                .padding(.bottom, 16)
+
+            Text("v1.0  -  Mistral AI Hackathon 2026")
                 .font(Theme.bodyFont(size: 10))
                 .foregroundStyle(Theme.textSecondary.opacity(0.5))
-                .padding(.bottom, 20)
+                .padding(.bottom, 12)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
@@ -143,7 +141,7 @@ struct MainMenuView: View {
                 gameState.startNewGame()
             } label: {
                 Text("START")
-                    .font(Theme.headlineFont(size: 20))
+                    .font(Theme.headlineFont(size: 22))
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 18)
@@ -154,7 +152,7 @@ struct MainMenuView: View {
                     )
             }
             .scaleEffect(buttonBounce ? 1 : 0.8)
-            .padding(.horizontal, 50)
+            .padding(.horizontal, 40)
 
             // Continue button (if save exists)
             if gameState.hasSaveData {
@@ -176,7 +174,7 @@ struct MainMenuView: View {
                             .strokeBorder(Theme.textPrimary.opacity(0.3), lineWidth: 1.5)
                     )
                 }
-                .padding(.horizontal, 50)
+                .padding(.horizontal, 40)
             }
         }
         .opacity(showContent ? 1 : 0)

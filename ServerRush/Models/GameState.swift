@@ -12,7 +12,7 @@ enum GamePhase: Equatable {
 
 // MARK: - Milestone Type
 enum MilestoneType: Equatable {
-    case firstBuild
+    case equipmentPlaced(Int)
     case firstExpansion
     case expansionUnlocked(Int)
     case revenueTarget(Double)
@@ -97,6 +97,7 @@ final class GameState {
 
     // MARK: - Expansion System
 
+    var pendingExpansion: ExpansionZone? = nil
     var expansionZones: [ExpansionZone] = ExpansionZone.defaultZones
 
     var unlockedExpansions: Set<Int> = []
@@ -104,7 +105,9 @@ final class GameState {
     // MARK: - Progression Tracking
 
     var totalMoneyEarned: Double = 0
+    var totalEquipmentPlaced: Int = 0
     var totalIncidentsResolved: Int = 0
+    var lastMilestoneTime: TimeInterval = -30 // allow first milestone immediately
     var playTime: TimeInterval = 0
     var currentObjective: Objective? = nil
     var achievedMilestones: Set<String> = []
@@ -173,6 +176,7 @@ final class GameState {
         money -= type.cost
         let equipment = PlacedEquipment(type: type, position: pos)
         placedEquipment[pos] = equipment
+        totalEquipmentPlaced += 1
         recalculateResources()
     }
 
@@ -224,6 +228,16 @@ final class GameState {
 
     // MARK: - Expansion Purchasing
 
+    func confirmExpansion() {
+        guard let zone = pendingExpansion else { return }
+        purchaseExpansion(zone)
+        pendingExpansion = nil
+    }
+
+    func cancelExpansion() {
+        pendingExpansion = nil
+    }
+
     func purchaseExpansion(_ zone: ExpansionZone) {
         guard money >= zone.cost, !zone.unlocked else { return }
         money -= zone.cost
@@ -262,10 +276,13 @@ final class GameState {
         expansionZones = ExpansionZone.defaultZones
         unlockedExpansions = []
         totalMoneyEarned = 0
+        totalEquipmentPlaced = 0
         totalIncidentsResolved = 0
+        lastMilestoneTime = -30
         playTime = 0
         currentObjective = nil
         achievedMilestones = []
+        pendingExpansion = nil
         phase = .playing
         recalculateResources()
     }
@@ -286,7 +303,9 @@ final class GameState {
             unlockedExpansions: unlockedExpansions,
             unlockedEquipment: unlockedEquipment,
             totalMoneyEarned: totalMoneyEarned,
+            totalEquipmentPlaced: totalEquipmentPlaced,
             totalIncidentsResolved: totalIncidentsResolved,
+            lastMilestoneTime: lastMilestoneTime,
             playTime: playTime,
             achievedMilestones: achievedMilestones,
             resolvedIncidentCount: resolvedIncidentCount,
@@ -313,7 +332,9 @@ final class GameState {
         unlockedExpansions = save.unlockedExpansions
         unlockedEquipment = save.unlockedEquipment
         totalMoneyEarned = save.totalMoneyEarned
+        totalEquipmentPlaced = save.totalEquipmentPlaced
         totalIncidentsResolved = save.totalIncidentsResolved
+        lastMilestoneTime = save.lastMilestoneTime
         playTime = save.playTime
         achievedMilestones = save.achievedMilestones
         resolvedIncidentCount = save.resolvedIncidentCount
@@ -340,13 +361,64 @@ private struct SaveData: Codable {
     let unlockedExpansions: Set<Int>
     let unlockedEquipment: [EquipmentType]
     let totalMoneyEarned: Double
+    let totalEquipmentPlaced: Int
     let totalIncidentsResolved: Int
+    let lastMilestoneTime: TimeInterval
     let playTime: TimeInterval
     let achievedMilestones: Set<String>
     let resolvedIncidentCount: Int
     let failedIncidentCount: Int
     let totalTicks: Int
     let downtimeTicks: Int
+
+    // Backwards-compatible decoding for saves without new fields
+    enum CodingKeys: String, CodingKey {
+        case money, placedEquipment, expansionZones, unlockedExpansions, unlockedEquipment
+        case totalMoneyEarned, totalEquipmentPlaced, totalIncidentsResolved, lastMilestoneTime
+        case playTime, achievedMilestones, resolvedIncidentCount, failedIncidentCount
+        case totalTicks, downtimeTicks
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        money = try container.decode(Double.self, forKey: .money)
+        placedEquipment = try container.decode([PlacedEquipment].self, forKey: .placedEquipment)
+        expansionZones = try container.decode([ExpansionZone].self, forKey: .expansionZones)
+        unlockedExpansions = try container.decode(Set<Int>.self, forKey: .unlockedExpansions)
+        unlockedEquipment = try container.decode([EquipmentType].self, forKey: .unlockedEquipment)
+        totalMoneyEarned = try container.decode(Double.self, forKey: .totalMoneyEarned)
+        totalEquipmentPlaced = try container.decodeIfPresent(Int.self, forKey: .totalEquipmentPlaced) ?? 0
+        totalIncidentsResolved = try container.decode(Int.self, forKey: .totalIncidentsResolved)
+        lastMilestoneTime = try container.decodeIfPresent(TimeInterval.self, forKey: .lastMilestoneTime) ?? -30
+        playTime = try container.decode(TimeInterval.self, forKey: .playTime)
+        achievedMilestones = try container.decode(Set<String>.self, forKey: .achievedMilestones)
+        resolvedIncidentCount = try container.decode(Int.self, forKey: .resolvedIncidentCount)
+        failedIncidentCount = try container.decode(Int.self, forKey: .failedIncidentCount)
+        totalTicks = try container.decode(Int.self, forKey: .totalTicks)
+        downtimeTicks = try container.decode(Int.self, forKey: .downtimeTicks)
+    }
+
+    init(money: Double, placedEquipment: [PlacedEquipment], expansionZones: [ExpansionZone],
+         unlockedExpansions: Set<Int>, unlockedEquipment: [EquipmentType], totalMoneyEarned: Double,
+         totalEquipmentPlaced: Int, totalIncidentsResolved: Int, lastMilestoneTime: TimeInterval,
+         playTime: TimeInterval, achievedMilestones: Set<String>, resolvedIncidentCount: Int,
+         failedIncidentCount: Int, totalTicks: Int, downtimeTicks: Int) {
+        self.money = money
+        self.placedEquipment = placedEquipment
+        self.expansionZones = expansionZones
+        self.unlockedExpansions = unlockedExpansions
+        self.unlockedEquipment = unlockedEquipment
+        self.totalMoneyEarned = totalMoneyEarned
+        self.totalEquipmentPlaced = totalEquipmentPlaced
+        self.totalIncidentsResolved = totalIncidentsResolved
+        self.lastMilestoneTime = lastMilestoneTime
+        self.playTime = playTime
+        self.achievedMilestones = achievedMilestones
+        self.resolvedIncidentCount = resolvedIncidentCount
+        self.failedIncidentCount = failedIncidentCount
+        self.totalTicks = totalTicks
+        self.downtimeTicks = downtimeTicks
+    }
 }
 
 // MARK: - Grid Position
@@ -387,11 +459,11 @@ extension ExpansionZone {
     /// Default expansion zone layout within a 16x16 grid.
     /// Starting area: cols 5-10, rows 5-10 (6x6 center).
     static let defaultZones: [ExpansionZone] = [
-        // Expansion 1: surrounding ring (cols 3-12, rows 3-12), cost $500
+        // Expansion 1: surrounding ring (cols 3-12, rows 3-12), cost $800
         ExpansionZone(
             id: 1,
             minCol: 3, minRow: 3, maxCol: 12, maxRow: 12,
-            cost: 500,
+            cost: 800,
             unlocked: false,
             unlocksEquipment: [.advancedRack, .coolingTower]
         ),
