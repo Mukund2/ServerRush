@@ -15,11 +15,7 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
     }
 
     private var audioPlayer: AVAudioPlayer?
-    private var isSpeaking = false
-
-    // Throttle: don't voice every single message
-    private var lastSpeakTime: Date = .distantPast
-    private let minInterval: TimeInterval = 50  // seconds between voiced lines
+    private var speakingStartTime: Date?
 
     private override init() {
         super.init()
@@ -36,16 +32,27 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
         }
     }
 
+    /// Whether we're currently speaking or the speaking state is stuck (auto-reset after 15s).
+    private var isBusy: Bool {
+        guard let start = speakingStartTime else { return false }
+        // Safety: auto-reset if stuck for more than 15 seconds
+        if Date().timeIntervalSince(start) > 15 {
+            speakingStartTime = nil
+            audioPlayer?.stop()
+            audioPlayer = nil
+            return false
+        }
+        return true
+    }
+
     // MARK: - Public API
 
-    /// Speak a message as Chip. Throttled and fire-and-forget.
+    /// Speak a message as Chip. Fire-and-forget.
     func speak(_ text: String) {
         guard !apiKey.isEmpty else { return }
-        guard !isSpeaking else { return }
+        guard !isBusy else { return }
 
-        let now = Date()
-        guard now.timeIntervalSince(lastSpeakTime) >= minInterval else { return }
-        lastSpeakTime = now
+        speakingStartTime = Date()
 
         Task {
             await synthesizeAndPlay(text)
@@ -56,16 +63,14 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
     func stop() {
         audioPlayer?.stop()
         audioPlayer = nil
-        isSpeaking = false
+        speakingStartTime = nil
     }
 
     // MARK: - API Call
 
     private func synthesizeAndPlay(_ text: String) async {
-        isSpeaking = true
-
         guard let url = URL(string: "\(apiURL)\(voiceID)") else {
-            isSpeaking = false
+            await MainActor.run { speakingStartTime = nil }
             return
         }
 
@@ -81,7 +86,7 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
         ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: body) else {
-            isSpeaking = false
+            await MainActor.run { speakingStartTime = nil }
             return
         }
 
@@ -97,8 +102,8 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
             let (data, response) = try await URLSession.shared.data(for: request)
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200,
-                  data.count > 1000 else {  // sanity check — valid audio is > 1KB
-                isSpeaking = false
+                  data.count > 1000 else {
+                await MainActor.run { speakingStartTime = nil }
                 return
             }
 
@@ -106,7 +111,7 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
                 playAudio(data: data)
             }
         } catch {
-            isSpeaking = false
+            await MainActor.run { speakingStartTime = nil }
         }
     }
 
@@ -117,14 +122,14 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
             audioPlayer?.volume = 0.85
             audioPlayer?.play()
         } catch {
-            isSpeaking = false
+            speakingStartTime = nil
         }
     }
 
     // MARK: - AVAudioPlayerDelegate
 
     func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
-        isSpeaking = false
+        speakingStartTime = nil
         audioPlayer = nil
     }
 }
