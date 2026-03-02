@@ -31,12 +31,12 @@ enum Theme {
     static let skTextSecondary  = SKColor(red: 0.545, green: 0.451, blue: 0.333, alpha: 1)
     static let skWoodTone       = SKColor(red: 0.627, green: 0.518, blue: 0.361, alpha: 1)
 
-    // MARK: - Equipment Category Colors (SpriteKit)
+    // MARK: - Equipment Category Colors (SpriteKit) — Maximalist Palette
 
-    static let skRackColor      = SKColor(red: 0.65, green: 0.68, blue: 0.62, alpha: 1)   // warm gray
-    static let skCoolingColor   = SKColor(red: 0.62, green: 0.78, blue: 0.72, alpha: 1)   // warm sage-teal
-    static let skPowerColor     = SKColor(red: 0.88, green: 0.75, blue: 0.45, alpha: 1)   // warm amber
-    static let skNetworkColor   = SKColor(red: 0.72, green: 0.62, blue: 0.55, alpha: 1)   // warm clay
+    static let skRackColor      = SKColor(red: 0.78, green: 0.42, blue: 0.38, alpha: 1)   // rich terracotta
+    static let skCoolingColor   = SKColor(red: 0.38, green: 0.72, blue: 0.78, alpha: 1)   // vivid teal
+    static let skPowerColor     = SKColor(red: 0.92, green: 0.72, blue: 0.22, alpha: 1)   // sunflower gold
+    static let skNetworkColor   = SKColor(red: 0.62, green: 0.42, blue: 0.72, alpha: 1)   // rich plum
 
     // MARK: - Fonts (SwiftUI)
 

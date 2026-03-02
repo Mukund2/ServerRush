@@ -262,12 +262,17 @@ enum TextureFactory {
                                    baseY: baseY, hh: hh, hw: hw, totalH: totalH, blockHeight: blockHeight)
             }
 
-            // Soft edge outlines (warm brown, not black)
-            gc.setStrokeColor(UIColor(red: 0.45, green: 0.35, blue: 0.25, alpha: 0.25).cgColor)
-            gc.setLineWidth(0.5)
+            // Bold edge outlines (darker, more defined)
+            gc.setStrokeColor(UIColor(red: 0.25, green: 0.18, blue: 0.12, alpha: 0.45).cgColor)
+            gc.setLineWidth(1.0)
             gc.addPath(top); gc.strokePath()
             gc.addPath(left); gc.strokePath()
             gc.addPath(right); gc.strokePath()
+
+            // Inner highlight on top face (specular gloss)
+            gc.setStrokeColor(UIColor(white: 1.0, alpha: 0.15).cgColor)
+            gc.setLineWidth(0.5)
+            gc.addPath(top); gc.strokePath()
         }
         return SKTexture(image: image)
     }
@@ -518,49 +523,104 @@ enum TextureFactory {
                                         baseY: CGFloat, hh: CGFloat, hw: CGFloat,
                                         totalH: CGFloat, blockHeight: CGFloat) {
         let tier = type.tier
-        let lineColor = UIColor(red: 0.35, green: 0.30, blue: 0.25, alpha: 0.3)
 
-        // Left face: horizontal shelf dividers
-        let shelfCount = tier  // 1, 2, or 3 shelves
-        gc.setStrokeColor(lineColor.cgColor)
-        gc.setLineWidth(0.75)
+        // Left face: accent stripe at top edge
+        let stripeColor = UIColor(red: 0.95, green: 0.85, blue: 0.35, alpha: 0.7)
+        let sTopL = leftFacePoint(f: 0.0, t: 0.0, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let sTopR = leftFacePoint(f: 0.0, t: 1.0, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let sBotR = leftFacePoint(f: 0.08, t: 1.0, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let sBotL = leftFacePoint(f: 0.08, t: 0.0, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        gc.setFillColor(stripeColor.cgColor)
+        gc.move(to: sTopL); gc.addLine(to: sTopR); gc.addLine(to: sBotR); gc.addLine(to: sBotL)
+        gc.closePath(); gc.fillPath()
+
+        // Left face: filled server bay panels (alternating colors)
+        let shelfCount = tier + 1
+        let bayColors: [UIColor] = [
+            UIColor(red: 0.20, green: 0.20, blue: 0.25, alpha: 0.45),
+            UIColor(red: 0.25, green: 0.22, blue: 0.30, alpha: 0.35)
+        ]
+        for i in 0..<shelfCount {
+            let fTop = 0.1 + CGFloat(i) * (0.85 / CGFloat(shelfCount))
+            let fBot = fTop + (0.78 / CGFloat(shelfCount))
+            let pTL = leftFacePoint(f: fTop, t: 0.08, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let pTR = leftFacePoint(f: fTop, t: 0.92, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let pBR = leftFacePoint(f: fBot, t: 0.92, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let pBL = leftFacePoint(f: fBot, t: 0.08, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            gc.setFillColor(bayColors[i % 2].cgColor)
+            gc.move(to: pTL); gc.addLine(to: pTR); gc.addLine(to: pBR); gc.addLine(to: pBL)
+            gc.closePath(); gc.fillPath()
+        }
+
+        // Left face: shelf divider lines (bold)
+        gc.setStrokeColor(UIColor(red: 0.20, green: 0.15, blue: 0.10, alpha: 0.5).cgColor)
+        gc.setLineWidth(1.0)
         for i in 1...shelfCount {
-            let f = CGFloat(i) / CGFloat(shelfCount + 1)
+            let f = 0.1 + CGFloat(i) * (0.85 / CGFloat(shelfCount + 1))
             let p0 = leftFacePoint(f: f, t: 0.05, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
             let p1 = leftFacePoint(f: f, t: 0.95, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-            gc.move(to: p0)
-            gc.addLine(to: p1)
+            gc.move(to: p0); gc.addLine(to: p1)
         }
         gc.strokePath()
 
-        // Left face: LED dots in each bay
+        // Left face: LED dots with glow rings
         let ledColor: UIColor
         switch status {
-        case .normal: ledColor = Theme.skPositive
-        case .warning: ledColor = Theme.skWarning
-        case .critical, .offline: ledColor = Theme.skCritical
+        case .normal: ledColor = UIColor(red: 0.2, green: 0.9, blue: 0.3, alpha: 1)
+        case .warning: ledColor = UIColor(red: 1.0, green: 0.8, blue: 0.1, alpha: 1)
+        case .critical, .offline: ledColor = UIColor(red: 1.0, green: 0.2, blue: 0.15, alpha: 1)
         }
-        gc.setFillColor(ledColor.cgColor)
-        let ledSize: CGFloat = 2.5
-        for i in 0...shelfCount {
-            let f = (CGFloat(i) + 0.5) / CGFloat(shelfCount + 1)
-            let p = leftFacePoint(f: f, t: 0.2, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let ledSize: CGFloat = 3.0
+        for i in 0..<shelfCount {
+            let f = 0.1 + (CGFloat(i) + 0.5) * (0.85 / CGFloat(shelfCount))
+            let p = leftFacePoint(f: f, t: 0.18, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            // Glow ring
+            gc.setFillColor(ledColor.withAlphaComponent(0.25).cgColor)
+            gc.fillEllipse(in: CGRect(x: p.x - ledSize, y: p.y - ledSize,
+                                      width: ledSize * 2, height: ledSize * 2))
+            // Core LED
+            gc.setFillColor(ledColor.cgColor)
             gc.fillEllipse(in: CGRect(x: p.x - ledSize / 2, y: p.y - ledSize / 2,
                                       width: ledSize, height: ledSize))
+            // Second LED (activity) — amber
+            if tier >= 2 {
+                let p2 = leftFacePoint(f: f, t: 0.30, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+                gc.setFillColor(UIColor(red: 1.0, green: 0.65, blue: 0.0, alpha: 0.8).cgColor)
+                gc.fillEllipse(in: CGRect(x: p2.x - 1.5, y: p2.y - 1.5, width: 3, height: 3))
+            }
         }
 
-        // Right face: ventilation slit lines
-        let ventCount = 1 + tier  // 2, 3, or 4 vents
-        gc.setStrokeColor(UIColor(red: 0.30, green: 0.28, blue: 0.22, alpha: 0.2).cgColor)
-        gc.setLineWidth(0.5)
+        // Right face: bold colored ventilation grille
+        let ventCount = 2 + tier
+        gc.setStrokeColor(UIColor(red: 0.15, green: 0.12, blue: 0.10, alpha: 0.35).cgColor)
+        gc.setLineWidth(0.8)
         for i in 1...ventCount {
             let f = CGFloat(i) / CGFloat(ventCount + 1)
-            let p0 = rightFacePoint(f: f, t: 0.3, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-            let p1 = rightFacePoint(f: f, t: 0.85, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-            gc.move(to: p0)
-            gc.addLine(to: p1)
+            let p0 = rightFacePoint(f: f, t: 0.15, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let p1 = rightFacePoint(f: f, t: 0.90, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            gc.move(to: p0); gc.addLine(to: p1)
         }
         gc.strokePath()
+
+        // Right face: accent stripe at top
+        let rsTopL = rightFacePoint(f: 0.0, t: 0.0, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let rsTopR = rightFacePoint(f: 0.0, t: 1.0, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let rsBotR = rightFacePoint(f: 0.08, t: 1.0, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let rsBotL = rightFacePoint(f: 0.08, t: 0.0, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        gc.setFillColor(stripeColor.withAlphaComponent(0.5).cgColor)
+        gc.move(to: rsTopL); gc.addLine(to: rsTopR); gc.addLine(to: rsBotR); gc.addLine(to: rsBotL)
+        gc.closePath(); gc.fillPath()
+
+        // Top face: colored brand plate
+        if tier >= 2 {
+            let plateTL = topFacePoint(fx: 0.3, fy: 0.3, baseY: baseY, hh: hh, hw: hw)
+            let plateTR = topFacePoint(fx: 0.3, fy: 0.7, baseY: baseY, hh: hh, hw: hw)
+            let plateBR = topFacePoint(fx: 0.7, fy: 0.7, baseY: baseY, hh: hh, hw: hw)
+            let plateBL = topFacePoint(fx: 0.7, fy: 0.3, baseY: baseY, hh: hh, hw: hw)
+            gc.setFillColor(UIColor(red: 0.90, green: 0.35, blue: 0.30, alpha: 0.35).cgColor)
+            gc.move(to: plateTL); gc.addLine(to: plateTR); gc.addLine(to: plateBR); gc.addLine(to: plateBL)
+            gc.closePath(); gc.fillPath()
+        }
     }
 
     // MARK: Cooling Details
@@ -569,10 +629,9 @@ enum TextureFactory {
                                            baseY: CGFloat, hh: CGFloat, hw: CGFloat,
                                            totalH: CGFloat, blockHeight: CGFloat) {
         let tier = type.tier
-        let detailColor = UIColor(red: 0.35, green: 0.45, blue: 0.40, alpha: 0.4)
 
-        // Top face: fan circle(s)
-        let fanCount = tier == 3 ? 2 : 1
+        // Top face: filled fan background circle(s) with colored blades
+        let fanCount = tier >= 2 ? 2 : 1
         for fi in 0..<fanCount {
             let cx: CGFloat
             let cy: CGFloat
@@ -580,44 +639,79 @@ enum TextureFactory {
                 let center = topFacePoint(fx: 0.5, fy: 0.5, baseY: baseY, hh: hh, hw: hw)
                 cx = center.x; cy = center.y
             } else {
-                // Two fans: left and right of center
                 let offset: CGFloat = fi == 0 ? 0.35 : 0.65
                 let center = topFacePoint(fx: 0.5, fy: offset, baseY: baseY, hh: hh, hw: hw)
                 cx = center.x; cy = center.y
             }
-            let fanRadius: CGFloat = fanCount == 1 ? min(hh * 0.5, hw * 0.2) : min(hh * 0.35, hw * 0.15)
+            let fanRadius: CGFloat = fanCount == 1 ? min(hh * 0.55, hw * 0.22) : min(hh * 0.4, hw * 0.16)
 
-            // Fan circle (isometric — draw as ellipse squashed vertically)
-            gc.setStrokeColor(detailColor.cgColor)
-            gc.setLineWidth(0.75)
+            // Fan housing fill (dark)
             let ellipseRect = CGRect(x: cx - fanRadius, y: cy - fanRadius * 0.55,
                                      width: fanRadius * 2, height: fanRadius * 1.1)
+            gc.setFillColor(UIColor(red: 0.15, green: 0.25, blue: 0.30, alpha: 0.5).cgColor)
+            gc.fillEllipse(in: ellipseRect)
+
+            // Fan rim (bright teal)
+            gc.setStrokeColor(UIColor(red: 0.2, green: 0.85, blue: 0.90, alpha: 0.7).cgColor)
+            gc.setLineWidth(1.2)
             gc.strokeEllipse(in: ellipseRect)
 
-            // Hub dot
-            gc.setFillColor(detailColor.cgColor)
-            let hubR: CGFloat = 1.5
-            gc.fillEllipse(in: CGRect(x: cx - hubR, y: cy - hubR, width: hubR * 2, height: hubR * 2))
-
-            // Blade cross
-            gc.setLineWidth(0.5)
-            gc.move(to: CGPoint(x: cx - fanRadius * 0.6, y: cy))
-            gc.addLine(to: CGPoint(x: cx + fanRadius * 0.6, y: cy))
-            gc.move(to: CGPoint(x: cx, y: cy - fanRadius * 0.35))
-            gc.addLine(to: CGPoint(x: cx, y: cy + fanRadius * 0.35))
+            // Colored blade cross (4 blades)
+            gc.setStrokeColor(UIColor(red: 0.55, green: 0.88, blue: 0.92, alpha: 0.8).cgColor)
+            gc.setLineWidth(1.0)
+            gc.move(to: CGPoint(x: cx - fanRadius * 0.65, y: cy))
+            gc.addLine(to: CGPoint(x: cx + fanRadius * 0.65, y: cy))
+            gc.move(to: CGPoint(x: cx, y: cy - fanRadius * 0.4))
+            gc.addLine(to: CGPoint(x: cx, y: cy + fanRadius * 0.4))
+            // Diagonal blades
+            gc.move(to: CGPoint(x: cx - fanRadius * 0.45, y: cy - fanRadius * 0.28))
+            gc.addLine(to: CGPoint(x: cx + fanRadius * 0.45, y: cy + fanRadius * 0.28))
+            gc.move(to: CGPoint(x: cx - fanRadius * 0.45, y: cy + fanRadius * 0.28))
+            gc.addLine(to: CGPoint(x: cx + fanRadius * 0.45, y: cy - fanRadius * 0.28))
             gc.strokePath()
+
+            // Hub dot (bright center)
+            gc.setFillColor(UIColor(red: 0.3, green: 0.95, blue: 1.0, alpha: 0.9).cgColor)
+            let hubR: CGFloat = 2.0
+            gc.fillEllipse(in: CGRect(x: cx - hubR, y: cy - hubR, width: hubR * 2, height: hubR * 2))
         }
 
-        // Left face: grille lines
-        let grilleCount = 2 + tier  // 3, 4, or 5
-        gc.setStrokeColor(detailColor.cgColor)
-        gc.setLineWidth(0.5)
+        // Left face: colored horizontal grille bars (filled, not just lines)
+        let grilleCount = 3 + tier
         for i in 1...grilleCount {
             let f = CGFloat(i) / CGFloat(grilleCount + 1)
-            let p0 = leftFacePoint(f: f, t: 0.1, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-            let p1 = leftFacePoint(f: f, t: 0.9, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-            gc.move(to: p0)
-            gc.addLine(to: p1)
+            let p0 = leftFacePoint(f: f, t: 0.08, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let p1 = leftFacePoint(f: f, t: 0.92, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let p0b = leftFacePoint(f: f + 0.035, t: 0.08, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let p1b = leftFacePoint(f: f + 0.035, t: 0.92, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            // Alternating teal/dark grille bars
+            let barColor = i % 2 == 0
+                ? UIColor(red: 0.20, green: 0.50, blue: 0.55, alpha: 0.45)
+                : UIColor(red: 0.15, green: 0.35, blue: 0.40, alpha: 0.35)
+            gc.setFillColor(barColor.cgColor)
+            gc.move(to: p0); gc.addLine(to: p1); gc.addLine(to: p1b); gc.addLine(to: p0b)
+            gc.closePath(); gc.fillPath()
+        }
+
+        // Left face: frost/ice accent dots (maximalist decorative)
+        if tier >= 2 {
+            let dotPositions: [(CGFloat, CGFloat)] = [(0.2, 0.15), (0.5, 0.80), (0.75, 0.50)]
+            gc.setFillColor(UIColor(red: 0.7, green: 0.95, blue: 1.0, alpha: 0.5).cgColor)
+            for (df, dt) in dotPositions {
+                let dp = leftFacePoint(f: df, t: dt, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+                gc.fillEllipse(in: CGRect(x: dp.x - 1.5, y: dp.y - 1.5, width: 3, height: 3))
+            }
+        }
+
+        // Right face: colored vent slits
+        let ventCount = 2 + tier
+        gc.setStrokeColor(UIColor(red: 0.18, green: 0.42, blue: 0.48, alpha: 0.4).cgColor)
+        gc.setLineWidth(0.8)
+        for i in 1...ventCount {
+            let f = CGFloat(i) / CGFloat(ventCount + 1)
+            let p0 = rightFacePoint(f: f, t: 0.2, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let p1 = rightFacePoint(f: f, t: 0.85, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            gc.move(to: p0); gc.addLine(to: p1)
         }
         gc.strokePath()
     }
@@ -628,82 +722,113 @@ enum TextureFactory {
                                          baseY: CGFloat, hh: CGFloat, hw: CGFloat,
                                          totalH: CGFloat, blockHeight: CGFloat) {
         let tier = type.tier
-        let detailColor = UIColor(red: 0.55, green: 0.42, blue: 0.20, alpha: 0.5)
 
-        // Top face: lightning bolt zigzag
-        let boltStart = topFacePoint(fx: 0.35, fy: 0.35, baseY: baseY, hh: hh, hw: hw)
-        let boltMid1  = topFacePoint(fx: 0.55, fy: 0.50, baseY: baseY, hh: hh, hw: hw)
-        let boltMid2  = topFacePoint(fx: 0.40, fy: 0.55, baseY: baseY, hh: hh, hw: hw)
-        let boltEnd   = topFacePoint(fx: 0.65, fy: 0.70, baseY: baseY, hh: hh, hw: hw)
-        gc.setStrokeColor(detailColor.cgColor)
-        gc.setLineWidth(1.0)
-        gc.move(to: boltStart)
-        gc.addLine(to: boltMid1)
-        gc.addLine(to: boltMid2)
-        gc.addLine(to: boltEnd)
-        gc.strokePath()
+        // Top face: filled lightning bolt (bright yellow)
+        let boltPath = CGMutablePath()
+        let b0 = topFacePoint(fx: 0.25, fy: 0.30, baseY: baseY, hh: hh, hw: hw)
+        let b1 = topFacePoint(fx: 0.50, fy: 0.38, baseY: baseY, hh: hh, hw: hw)
+        let b2 = topFacePoint(fx: 0.42, fy: 0.48, baseY: baseY, hh: hh, hw: hw)
+        let b3 = topFacePoint(fx: 0.68, fy: 0.58, baseY: baseY, hh: hh, hw: hw)
+        let b4 = topFacePoint(fx: 0.45, fy: 0.52, baseY: baseY, hh: hh, hw: hw)
+        let b5 = topFacePoint(fx: 0.55, fy: 0.65, baseY: baseY, hh: hh, hw: hw)
+        let b6 = topFacePoint(fx: 0.75, fy: 0.72, baseY: baseY, hh: hh, hw: hw)
+        boltPath.move(to: b0); boltPath.addLine(to: b1); boltPath.addLine(to: b2)
+        boltPath.addLine(to: b3); boltPath.addLine(to: b4); boltPath.addLine(to: b5)
+        boltPath.addLine(to: b6)
+        // Glow
+        gc.setStrokeColor(UIColor(red: 1.0, green: 0.9, blue: 0.2, alpha: 0.4).cgColor)
+        gc.setLineWidth(3.0)
+        gc.addPath(boltPath); gc.strokePath()
+        // Bolt
+        gc.setStrokeColor(UIColor(red: 1.0, green: 0.85, blue: 0.0, alpha: 0.9).cgColor)
+        gc.setLineWidth(1.5)
+        gc.addPath(boltPath); gc.strokePath()
 
-        // Left face: recessed panel rectangle
-        let panelTL = leftFacePoint(f: 0.15, t: 0.15, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-        let panelTR = leftFacePoint(f: 0.15, t: 0.85, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-        let panelBR = leftFacePoint(f: 0.65, t: 0.85, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-        let panelBL = leftFacePoint(f: 0.65, t: 0.15, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-        gc.setStrokeColor(detailColor.cgColor)
-        gc.setLineWidth(0.5)
-        gc.move(to: panelTL)
-        gc.addLine(to: panelTR)
-        gc.addLine(to: panelBR)
-        gc.addLine(to: panelBL)
-        gc.closePath()
-        gc.strokePath()
-
-        // Left face: gauge circle inside panel
-        let gaugeCenter = leftFacePoint(f: 0.35, t: 0.5, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-        let gaugeR: CGFloat = 3.0
-        gc.strokeEllipse(in: CGRect(x: gaugeCenter.x - gaugeR, y: gaugeCenter.y - gaugeR,
-                                    width: gaugeR * 2, height: gaugeR * 2))
-        // Needle
-        gc.move(to: gaugeCenter)
-        gc.addLine(to: CGPoint(x: gaugeCenter.x + gaugeR * 0.7, y: gaugeCenter.y - gaugeR * 0.5))
-        gc.strokePath()
-
-        // Tier 2+: battery indicator bar below gauge
+        // Top face: hazard stripe border (yellow/dark chevrons)
         if tier >= 2 {
-            let barLeft  = leftFacePoint(f: 0.52, t: 0.25, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-            let barRight = leftFacePoint(f: 0.52, t: 0.75, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-            // Bar outline
-            gc.setStrokeColor(detailColor.cgColor)
-            gc.setLineWidth(0.5)
-            let barH: CGFloat = 2.5
-            gc.stroke(CGRect(x: barLeft.x, y: barLeft.y, width: barRight.x - barLeft.x, height: barH))
-            // Fill ~70%
-            gc.setFillColor(Theme.skPositive.withAlphaComponent(0.5).cgColor)
-            gc.fill(CGRect(x: barLeft.x + 0.5, y: barLeft.y + 0.5,
-                           width: (barRight.x - barLeft.x - 1) * 0.7, height: barH - 1))
+            let chevronColor = UIColor(red: 0.15, green: 0.12, blue: 0.05, alpha: 0.3)
+            gc.setFillColor(chevronColor.cgColor)
+            for i in 0..<4 {
+                let fx0: CGFloat = CGFloat(i) * 0.25 + 0.05
+                let fx1 = fx0 + 0.12
+                let pA = topFacePoint(fx: fx0, fy: 0.05, baseY: baseY, hh: hh, hw: hw)
+                let pB = topFacePoint(fx: fx1, fy: 0.05, baseY: baseY, hh: hh, hw: hw)
+                let pC = topFacePoint(fx: fx1, fy: 0.15, baseY: baseY, hh: hh, hw: hw)
+                let pD = topFacePoint(fx: fx0, fy: 0.15, baseY: baseY, hh: hh, hw: hw)
+                gc.move(to: pA); gc.addLine(to: pB); gc.addLine(to: pC); gc.addLine(to: pD)
+                gc.closePath(); gc.fillPath()
+            }
         }
 
-        // Tier 3: second indicator + right-face vent lines
-        if tier >= 3 {
-            let bar2Left  = leftFacePoint(f: 0.58, t: 0.25, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-            let bar2Right = leftFacePoint(f: 0.58, t: 0.75, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-            gc.setStrokeColor(detailColor.cgColor)
-            gc.stroke(CGRect(x: bar2Left.x, y: bar2Left.y,
-                             width: bar2Right.x - bar2Left.x, height: 2.5))
-            gc.setFillColor(Theme.skWarning.withAlphaComponent(0.5).cgColor)
-            gc.fill(CGRect(x: bar2Left.x + 0.5, y: bar2Left.y + 0.5,
-                           width: (bar2Right.x - bar2Left.x - 1) * 0.5, height: 1.5))
+        // Left face: filled recessed panel
+        let panelTL = leftFacePoint(f: 0.10, t: 0.10, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let panelTR = leftFacePoint(f: 0.10, t: 0.90, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let panelBR = leftFacePoint(f: 0.60, t: 0.90, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let panelBL = leftFacePoint(f: 0.60, t: 0.10, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        gc.setFillColor(UIColor(red: 0.20, green: 0.18, blue: 0.10, alpha: 0.35).cgColor)
+        gc.move(to: panelTL); gc.addLine(to: panelTR); gc.addLine(to: panelBR); gc.addLine(to: panelBL)
+        gc.closePath(); gc.fillPath()
+        // Panel border
+        gc.setStrokeColor(UIColor(red: 0.70, green: 0.55, blue: 0.10, alpha: 0.5).cgColor)
+        gc.setLineWidth(0.8)
+        gc.move(to: panelTL); gc.addLine(to: panelTR); gc.addLine(to: panelBR); gc.addLine(to: panelBL)
+        gc.closePath(); gc.strokePath()
 
-            // Right face vents
-            gc.setStrokeColor(UIColor(red: 0.50, green: 0.38, blue: 0.18, alpha: 0.25).cgColor)
+        // Left face: filled gauge with colored dial
+        let gaugeCenter = leftFacePoint(f: 0.30, t: 0.50, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let gaugeR: CGFloat = 3.5
+        // Gauge background
+        gc.setFillColor(UIColor(red: 0.95, green: 0.92, blue: 0.80, alpha: 0.7).cgColor)
+        gc.fillEllipse(in: CGRect(x: gaugeCenter.x - gaugeR, y: gaugeCenter.y - gaugeR,
+                                  width: gaugeR * 2, height: gaugeR * 2))
+        // Gauge rim
+        gc.setStrokeColor(UIColor(red: 0.65, green: 0.50, blue: 0.15, alpha: 0.8).cgColor)
+        gc.setLineWidth(1.0)
+        gc.strokeEllipse(in: CGRect(x: gaugeCenter.x - gaugeR, y: gaugeCenter.y - gaugeR,
+                                    width: gaugeR * 2, height: gaugeR * 2))
+        // Red needle
+        gc.setStrokeColor(UIColor(red: 0.85, green: 0.15, blue: 0.10, alpha: 0.9).cgColor)
+        gc.setLineWidth(0.8)
+        gc.move(to: gaugeCenter)
+        gc.addLine(to: CGPoint(x: gaugeCenter.x + gaugeR * 0.75, y: gaugeCenter.y - gaugeR * 0.5))
+        gc.strokePath()
+
+        // Battery bars (bold, colorful)
+        let barColors: [(UIColor, CGFloat)] = [
+            (UIColor(red: 0.2, green: 0.85, blue: 0.3, alpha: 0.7), 0.80),  // green, 80%
+            (UIColor(red: 1.0, green: 0.75, blue: 0.0, alpha: 0.7), 0.55),  // amber, 55%
+            (UIColor(red: 0.9, green: 0.25, blue: 0.2, alpha: 0.7), 0.30),  // red, 30%
+        ]
+        let barCount = min(tier, barColors.count)
+        for bi in 0..<barCount {
+            let barF = 0.45 + CGFloat(bi) * 0.12
+            let barLeft  = leftFacePoint(f: barF, t: 0.18, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let barRight = leftFacePoint(f: barF, t: 0.82, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let barH: CGFloat = 3.0
+            // Background
+            gc.setFillColor(UIColor(red: 0.15, green: 0.12, blue: 0.08, alpha: 0.3).cgColor)
+            gc.fill(CGRect(x: barLeft.x, y: barLeft.y, width: barRight.x - barLeft.x, height: barH))
+            // Fill
+            gc.setFillColor(barColors[bi].0.cgColor)
+            gc.fill(CGRect(x: barLeft.x + 0.5, y: barLeft.y + 0.5,
+                           width: (barRight.x - barLeft.x - 1) * barColors[bi].1, height: barH - 1))
+            // Border
+            gc.setStrokeColor(UIColor(red: 0.50, green: 0.40, blue: 0.10, alpha: 0.4).cgColor)
             gc.setLineWidth(0.5)
-            for i in 1...3 {
-                let f = CGFloat(i) / 4.0
-                let p0 = rightFacePoint(f: f, t: 0.25, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-                let p1 = rightFacePoint(f: f, t: 0.80, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-                gc.move(to: p0)
-                gc.addLine(to: p1)
-            }
-            gc.strokePath()
+            gc.stroke(CGRect(x: barLeft.x, y: barLeft.y, width: barRight.x - barLeft.x, height: barH))
+        }
+
+        // Right face: warning stripe pattern
+        gc.setFillColor(UIColor(red: 0.15, green: 0.12, blue: 0.05, alpha: 0.2).cgColor)
+        for i in 0..<3 {
+            let f0 = 0.15 + CGFloat(i) * 0.28
+            let f1 = f0 + 0.14
+            let rTL = rightFacePoint(f: f0, t: 0.2, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let rTR = rightFacePoint(f: f0, t: 0.8, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let rBR = rightFacePoint(f: f1, t: 0.8, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let rBL = rightFacePoint(f: f1, t: 0.2, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            gc.move(to: rTL); gc.addLine(to: rTR); gc.addLine(to: rBR); gc.addLine(to: rBL)
+            gc.closePath(); gc.fillPath()
         }
     }
 
@@ -713,51 +838,89 @@ enum TextureFactory {
                                            baseY: CGFloat, hh: CGFloat, hw: CGFloat,
                                            totalH: CGFloat, blockHeight: CGFloat) {
         let tier = type.tier
-        let detailColor = UIColor(red: 0.45, green: 0.35, blue: 0.28, alpha: 0.4)
 
-        // Left face: port grid (small rectangles)
-        let rows = tier  // 1, 2, or 3 rows
+        // Left face: filled dark panel background
+        let panelTL = leftFacePoint(f: 0.06, t: 0.06, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let panelTR = leftFacePoint(f: 0.06, t: 0.94, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let panelBR = leftFacePoint(f: 0.80, t: 0.94, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        let panelBL = leftFacePoint(f: 0.80, t: 0.06, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+        gc.setFillColor(UIColor(red: 0.18, green: 0.12, blue: 0.22, alpha: 0.35).cgColor)
+        gc.move(to: panelTL); gc.addLine(to: panelTR); gc.addLine(to: panelBR); gc.addLine(to: panelBL)
+        gc.closePath(); gc.fillPath()
+
+        // Left face: colorful port grid
+        let rows = tier + 1
         let cols = 3
-        let portW: CGFloat = 2.0
-        let portH: CGFloat = 1.5
-        gc.setFillColor(detailColor.cgColor)
+        let portW: CGFloat = 2.5
+        let portH: CGFloat = 2.0
+        let portColors: [UIColor] = [
+            UIColor(red: 0.2, green: 0.85, blue: 0.3, alpha: 0.8),   // green (active)
+            UIColor(red: 1.0, green: 0.7, blue: 0.0, alpha: 0.7),    // amber (standby)
+            UIColor(red: 0.5, green: 0.35, blue: 0.65, alpha: 0.5),  // purple (idle)
+        ]
         for r in 0..<rows {
-            let fY = 0.25 + CGFloat(r) * 0.22
+            let fY = 0.12 + CGFloat(r) * (0.60 / CGFloat(rows))
             for c in 0..<cols {
-                let fX = 0.2 + CGFloat(c) * 0.25
+                let fX = 0.18 + CGFloat(c) * 0.26
                 let p = leftFacePoint(f: fY, t: fX, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+                // Port background
+                gc.setFillColor(UIColor(red: 0.10, green: 0.08, blue: 0.15, alpha: 0.5).cgColor)
+                gc.fill(CGRect(x: p.x - portW / 2 - 0.5, y: p.y - portH / 2 - 0.5,
+                               width: portW + 1, height: portH + 1))
+                // Port color
+                let colorIdx = (r + c) % portColors.count
+                gc.setFillColor(portColors[colorIdx].cgColor)
                 gc.fill(CGRect(x: p.x - portW / 2, y: p.y - portH / 2, width: portW, height: portH))
             }
         }
 
-        // One port highlighted green (active link)
-        let activePort = leftFacePoint(f: 0.25, t: 0.2, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-        gc.setFillColor(Theme.skPositive.withAlphaComponent(0.7).cgColor)
-        gc.fill(CGRect(x: activePort.x - portW / 2, y: activePort.y - portH / 2,
-                       width: portW, height: portH))
+        // Left face: status LEDs row (multiple colored dots)
+        let ledColors: [UIColor] = [
+            UIColor(red: 0.1, green: 0.9, blue: 0.2, alpha: 0.9),
+            UIColor(red: 1.0, green: 0.5, blue: 0.0, alpha: 0.9),
+            UIColor(red: 0.4, green: 0.6, blue: 1.0, alpha: 0.9),
+        ]
+        let ledCount = min(tier + 1, ledColors.count)
+        for li in 0..<ledCount {
+            let fX = 0.2 + CGFloat(li) * 0.25
+            let p = leftFacePoint(f: 0.78, t: fX, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            // Glow
+            gc.setFillColor(ledColors[li].withAlphaComponent(0.25).cgColor)
+            gc.fillEllipse(in: CGRect(x: p.x - 2.5, y: p.y - 2.5, width: 5, height: 5))
+            // Dot
+            gc.setFillColor(ledColors[li].cgColor)
+            gc.fillEllipse(in: CGRect(x: p.x - 1.5, y: p.y - 1.5, width: 3, height: 3))
+        }
 
-        // Status LED dot
-        let ledPos = leftFacePoint(f: 0.7, t: 0.2, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
-        gc.setFillColor(Theme.skPositive.cgColor)
-        gc.fillEllipse(in: CGRect(x: ledPos.x - 1.5, y: ledPos.y - 1.5, width: 3, height: 3))
+        // Right face: signal wave arcs (decorative)
+        let waveColor = UIColor(red: 0.55, green: 0.40, blue: 0.80, alpha: 0.35)
+        gc.setStrokeColor(waveColor.cgColor)
+        gc.setLineWidth(0.7)
+        for i in 1...3 {
+            let cx = rightFacePoint(f: 0.4, t: 0.5, baseY: baseY, hh: hh, totalH: totalH, hw: hw)
+            let r = CGFloat(i) * 3.0
+            gc.strokeEllipse(in: CGRect(x: cx.x - r, y: cx.y - r * 0.55,
+                                        width: r * 2, height: r * 1.1))
+        }
 
-        // Top face: antenna stub(s) for tier 2+
-        if tier >= 2 {
-            let antennaCount = tier == 3 ? 2 : 1
-            for ai in 0..<antennaCount {
-                let fy: CGFloat = antennaCount == 1 ? 0.5 : (ai == 0 ? 0.35 : 0.65)
-                let antennaBase = topFacePoint(fx: 0.3, fy: fy, baseY: baseY, hh: hh, hw: hw)
-                let antennaTop = CGPoint(x: antennaBase.x, y: antennaBase.y - 5)
-                gc.setStrokeColor(detailColor.cgColor)
-                gc.setLineWidth(1.0)
-                gc.move(to: antennaBase)
-                gc.addLine(to: antennaTop)
-                gc.strokePath()
-                // Ball tip
-                gc.setFillColor(detailColor.cgColor)
-                gc.fillEllipse(in: CGRect(x: antennaTop.x - 1.5, y: antennaTop.y - 1.5,
-                                          width: 3, height: 3))
-            }
+        // Top face: antenna stub(s) with colored tips
+        let antennaCount = max(1, tier)
+        for ai in 0..<antennaCount {
+            let fy: CGFloat = antennaCount == 1 ? 0.5 : (ai == 0 ? 0.30 : (ai == 1 ? 0.60 : 0.50))
+            let antennaBase = topFacePoint(fx: 0.25, fy: fy, baseY: baseY, hh: hh, hw: hw)
+            let antennaTop = CGPoint(x: antennaBase.x, y: antennaBase.y - 6)
+            // Antenna pole (bright)
+            gc.setStrokeColor(UIColor(red: 0.65, green: 0.50, blue: 0.80, alpha: 0.8).cgColor)
+            gc.setLineWidth(1.2)
+            gc.move(to: antennaBase); gc.addLine(to: antennaTop); gc.strokePath()
+            // Glowing tip
+            let tipColor: UIColor = ai == 0
+                ? UIColor(red: 0.2, green: 0.9, blue: 0.3, alpha: 0.9)
+                : UIColor(red: 0.9, green: 0.4, blue: 0.8, alpha: 0.9)
+            gc.setFillColor(tipColor.withAlphaComponent(0.3).cgColor)
+            gc.fillEllipse(in: CGRect(x: antennaTop.x - 3, y: antennaTop.y - 3, width: 6, height: 6))
+            gc.setFillColor(tipColor.cgColor)
+            gc.fillEllipse(in: CGRect(x: antennaTop.x - 1.8, y: antennaTop.y - 1.8, width: 3.6, height: 3.6))
         }
     }
 
