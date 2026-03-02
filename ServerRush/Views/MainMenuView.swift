@@ -137,7 +137,7 @@ struct MainMenuView: View {
         VStack(spacing: 12) {
             // Main START button
             Button {
-                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                AudioManager.shared.playUITap()
                 gameState.startNewGame()
             } label: {
                 Text("START")
@@ -157,7 +157,7 @@ struct MainMenuView: View {
             // Continue button (if save exists)
             if gameState.hasSaveData {
                 Button {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    AudioManager.shared.playUITap()
                     gameState.loadGame()
                 } label: {
                     HStack(spacing: 8) {

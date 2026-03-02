@@ -1303,6 +1303,7 @@ final class GameScene: SKScene {
         guard incident.requiredTool == tool else { return }
 
         incidentScheduler.resolveIncident(at: position)
+        AudioManager.shared.playResolveSound()
 
         // Flash effect on resolved rack
         if let sprite = equipmentSprites[position] {

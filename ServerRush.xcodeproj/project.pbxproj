@@ -13,10 +13,12 @@
 		2091A07C530AF107F7B0FC12 /* GameState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F39590FEFE9863712D781FFD /* GameState.swift */; };
 		2685623E44DF98AEE178BB88 /* SimulationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D058144EB34350490B7E6587 /* SimulationEngine.swift */; };
 		2C36CEB233D016DEC5B503BD /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DA726CCCB45ABCA4FCCEA10 /* ContentView.swift */; };
+		32CCD66A94E3EA1C9239727C /* SoundEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4A22C571E226F413FB163BF /* SoundEngine.swift */; };
 		3A84B7170581D9C3B47FEEB5 /* CameraController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC1F859D3B8EF6FD7F5BD16E /* CameraController.swift */; };
 		3B0533CDB4D7F806F99C1B39 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AA616DEB8FCCFF9D4D7B226 /* AudioManager.swift */; };
 		4D1B70DDBA2C146CC0E81902 /* IsometricUtils.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDDD28EA8C204D5A71705171 /* IsometricUtils.swift */; };
 		655A271B7B23AFC70C3D64D3 /* IncidentAlertView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE6D62085F821D36EED53E27 /* IncidentAlertView.swift */; };
+		6D5973377EEFD8A8751446DD /* ElevenLabsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120A17567F029EDCE839D592 /* ElevenLabsService.swift */; };
 		6E38EF42E30A6B7C4D25A424 /* RackInfoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CC5E25C304759ADD0435FC7 /* RackInfoView.swift */; };
 		6F2FFF150E0EA0D334B24628 /* IncidentScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BA0DA3BAC4E2C615410DC7E /* IncidentScheduler.swift */; };
 		786AA8D68FD8EA0784255B97 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 59079721EFA0A74163AB4B3C /* Assets.xcassets */; };
@@ -34,6 +36,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		120A17567F029EDCE839D592 /* ElevenLabsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ElevenLabsService.swift; sourceTree = "<group>"; };
 		1AA616DEB8FCCFF9D4D7B226 /* AudioManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
 		31DED24CAA2D97370DCF4B57 /* Equipment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Equipment.swift; sourceTree = "<group>"; };
 		3BA0DA3BAC4E2C615410DC7E /* IncidentScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncidentScheduler.swift; sourceTree = "<group>"; };
@@ -54,6 +57,7 @@
 		B55BAFDEB9B8FA1EDA7627E3 /* AIGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AIGuideView.swift; sourceTree = "<group>"; };
 		D058144EB34350490B7E6587 /* SimulationEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimulationEngine.swift; sourceTree = "<group>"; };
 		D466B5FB3A94EF8318AAE93A /* MainMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MainMenuView.swift; sourceTree = "<group>"; };
+		D4A22C571E226F413FB163BF /* SoundEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SoundEngine.swift; sourceTree = "<group>"; };
 		DC1F859D3B8EF6FD7F5BD16E /* CameraController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraController.swift; sourceTree = "<group>"; };
 		DDDD28EA8C204D5A71705171 /* IsometricUtils.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IsometricUtils.swift; sourceTree = "<group>"; };
 		DE6D62085F821D36EED53E27 /* IncidentAlertView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IncidentAlertView.swift; sourceTree = "<group>"; };
@@ -115,7 +119,9 @@
 			isa = PBXGroup;
 			children = (
 				1AA616DEB8FCCFF9D4D7B226 /* AudioManager.swift */,
+				120A17567F029EDCE839D592 /* ElevenLabsService.swift */,
 				9DA7419813C4EB1E513B017E /* MistralService.swift */,
+				D4A22C571E226F413FB163BF /* SoundEngine.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -170,6 +176,12 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					75B834C4B4054800D1BE608A = {
+						DevelopmentTeam = 8JGWLCTJ7D;
+						ProvisioningStyle = Automatic;
+					};
+				};
 			};
 			buildConfigurationList = 43C2277859308490EEA1ACC5 /* Build configuration list for PBXProject "ServerRush" */;
 			compatibilityVersion = "Xcode 14.0";
@@ -211,6 +223,7 @@
 				E6B627A9D241C878CE227113 /* BuildMenuView.swift in Sources */,
 				3A84B7170581D9C3B47FEEB5 /* CameraController.swift in Sources */,
 				2C36CEB233D016DEC5B503BD /* ContentView.swift in Sources */,
+				6D5973377EEFD8A8751446DD /* ElevenLabsService.swift in Sources */,
 				EBA5EAD926FEEA8B9102F107 /* Equipment.swift in Sources */,
 				AF0CF5689E088592A9E425C9 /* ExpansionConfirmView.swift in Sources */,
 				1BB899C22ED5BDCCF009BF03 /* GameScene.swift in Sources */,
@@ -228,6 +241,7 @@
 				6E38EF42E30A6B7C4D25A424 /* RackInfoView.swift in Sources */,
 				821ECDD5DB61DDA53C3182E1 /* ServerRushApp.swift in Sources */,
 				2685623E44DF98AEE178BB88 /* SimulationEngine.swift in Sources */,
+				32CCD66A94E3EA1C9239727C /* SoundEngine.swift in Sources */,
 				E3EB40BD400CDC9AA24E1FA5 /* Theme.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -239,9 +253,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8JGWLCTJ7D;
 				INFOPLIST_FILE = ServerRush/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -314,9 +330,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				CODE_SIGNING_ALLOWED = NO;
-				CODE_SIGNING_REQUIRED = NO;
-				CODE_SIGN_IDENTITY = "";
+				CODE_SIGNING_ALLOWED = YES;
+				CODE_SIGNING_REQUIRED = YES;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = 8JGWLCTJ7D;
 				INFOPLIST_FILE = ServerRush/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

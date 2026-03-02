@@ -85,7 +85,7 @@ struct RackInfoView: View {
 
             // Close
             Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                AudioManager.shared.playUITap()
                 gameState.selectedTile = nil
             } label: {
                 Image(systemName: "xmark")
@@ -258,7 +258,7 @@ struct RackInfoView: View {
             if let upgrade = equipment.type.upgradesTo {
                 let canUpgrade = gameState.canAfford(upgrade)
                 Button {
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    AudioManager.shared.playUpgradeSound()
                     gameState.upgradeEquipment(at: equipment.position)
                 } label: {
                     HStack(spacing: 6) {
@@ -288,7 +288,11 @@ struct RackInfoView: View {
 
             // Sell button
             Button {
-                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                if showConfirmSell {
+                    AudioManager.shared.playSellSound()
+                } else {
+                    AudioManager.shared.playUITap()
+                }
                 if showConfirmSell {
                     gameState.sellEquipment(at: equipment.position)
                     gameState.selectedTile = nil

@@ -77,6 +77,9 @@ final class SimulationEngine {
         }
         let earned = state.revenuePerSecond * multiplier
         state.money += earned
+        if earned > 0 {
+            AudioManager.shared.playCoinEarned()
+        }
         return earned
     }
 

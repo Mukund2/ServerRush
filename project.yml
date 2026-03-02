@@ -32,6 +32,8 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.mukund.ServerRush
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        CODE_SIGN_IDENTITY: ""
-        CODE_SIGNING_REQUIRED: "NO"
-        CODE_SIGNING_ALLOWED: "NO"
+        CODE_SIGN_IDENTITY: "Apple Development"
+        CODE_SIGNING_REQUIRED: "YES"
+        CODE_SIGNING_ALLOWED: "YES"
+        DEVELOPMENT_TEAM: 8JGWLCTJ7D
+        CODE_SIGN_STYLE: Automatic

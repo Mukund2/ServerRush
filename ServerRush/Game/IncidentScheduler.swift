@@ -86,6 +86,7 @@ final class IncidentScheduler {
                     requiredTool: telegraph.type.requiredTool
                 )
                 state.activeIncidents.append(incident)
+                AudioManager.shared.playIncidentAlert()
             } else {
                 remaining.append(telegraph)
             }

@@ -62,7 +62,7 @@ struct BuildMenuView: View {
             Spacer()
 
             Button {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                AudioManager.shared.playUITap()
                 gameState.buildMode = nil
             } label: {
                 Text("Cancel")
@@ -85,7 +85,7 @@ struct BuildMenuView: View {
 
     private var collapseHandle: some View {
         Button {
-            UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            AudioManager.shared.playUITap()
             isExpanded.toggle()
         } label: {
             VStack(spacing: 2) {
@@ -118,7 +118,7 @@ struct BuildMenuView: View {
 
                 Button {
                     guard hasItems else { return }
-                    UIImpactFeedbackGenerator(style: .light).impactOccurred()
+                    AudioManager.shared.playUITap()
                     selectedCategory = category
                 } label: {
                     HStack(spacing: 3) {
@@ -151,7 +151,7 @@ struct BuildMenuView: View {
             HStack(spacing: 8) {
                 ForEach(itemsForCategory(selectedCategory)) { item in
                     WarmEquipmentCard(type: item, canAfford: gameState.canAfford(item)) {
-                        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                        AudioManager.shared.playUITap()
                         gameState.buildMode = item
                     }
                 }
