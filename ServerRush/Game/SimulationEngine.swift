@@ -10,6 +10,7 @@ final class SimulationEngine {
     // Tick accumulator
     private let tickInterval: TimeInterval = 1.0
     private var tickAccumulator: TimeInterval = 0
+    private var coinSoundCounter = 0
 
     init(gameState: GameState) {
         self.gameState = gameState
@@ -78,7 +79,11 @@ final class SimulationEngine {
         let earned = state.revenuePerSecond * multiplier
         state.money += earned
         if earned > 0 {
-            AudioManager.shared.playCoinEarned()
+            coinSoundCounter += 1
+            if coinSoundCounter >= 5 {
+                coinSoundCounter = 0
+                AudioManager.shared.playCoinEarned()
+            }
         }
         return earned
     }
