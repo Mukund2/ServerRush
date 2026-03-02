@@ -6,23 +6,13 @@ import QuartzCore
 final class SimulationEngine {
 
     private weak var gameState: GameState?
-    private var level: LevelDefinition?
 
     // Tick accumulator
     private let tickInterval: TimeInterval = 1.0
     private var tickAccumulator: TimeInterval = 0
 
-    // Sustain timer for level completion
-    private var sustainTimer: TimeInterval = 0
-
     init(gameState: GameState) {
         self.gameState = gameState
-    }
-
-    func setLevel(_ level: LevelDefinition) {
-        self.level = level
-        tickAccumulator = 0
-        sustainTimer = 0
     }
 
     // MARK: - Main Update
@@ -31,7 +21,7 @@ final class SimulationEngine {
     func update(deltaTime dt: TimeInterval) {
         guard let state = gameState, state.phase == .playing else { return }
 
-        state.levelElapsedTime += dt
+        state.playTime += dt
         tickAccumulator += dt
 
         while tickAccumulator >= tickInterval {
@@ -43,12 +33,15 @@ final class SimulationEngine {
     // MARK: - Tick
 
     private func performTick() {
-        guard let state = gameState, let level = level else { return }
+        guard let state = gameState else { return }
 
         state.totalTicks += 1
 
         // Revenue
-        applyRevenue(state)
+        let revenue = applyRevenue(state)
+
+        // Track lifetime earnings
+        state.totalMoneyEarned += revenue
 
         // Resource balance
         checkResourceBalance(state)
@@ -59,8 +52,11 @@ final class SimulationEngine {
         // Uptime tracking
         trackUptime(state)
 
-        // Level completion check
-        checkLevelCompletion(state, level: level)
+        // Milestone check
+        checkMilestones(state)
+
+        // Update current objective
+        state.currentObjective = ExpansionDefinition.nextObjective(state: state)
 
         // Game-over check
         checkGameOver(state)
@@ -71,13 +67,17 @@ final class SimulationEngine {
 
     // MARK: - Revenue
 
-    private func applyRevenue(_ state: GameState) {
+    /// Applies revenue for this tick and returns the amount earned.
+    @discardableResult
+    private func applyRevenue(_ state: GameState) -> Double {
         // Reduce revenue if there are active incidents
         var multiplier: Double = 1.0
         for incident in state.activeIncidents where !incident.resolved && !incident.failed {
             multiplier *= incident.type.revenueLossMultiplier
         }
-        state.money += state.revenuePerSecond * multiplier
+        let earned = state.revenuePerSecond * multiplier
+        state.money += earned
+        return earned
     }
 
     // MARK: - Resource Balance
@@ -123,14 +123,11 @@ final class SimulationEngine {
             guard eq.type.category == .rack else { continue }
 
             if coolingDeficit > 0 {
-                // Heat up proportional to deficit
                 eq.temperature += coolingDeficit * 0.05
             } else {
-                // Cool down toward baseline (30 C)
                 eq.temperature = max(30, eq.temperature - 2)
             }
 
-            // Overheating damage
             if eq.isOverheating {
                 eq.health = max(0, eq.health - 3)
                 if eq.health <= 0 {
@@ -155,21 +152,13 @@ final class SimulationEngine {
         }
     }
 
-    // MARK: - Level Completion
+    // MARK: - Milestones
 
-    private func checkLevelCompletion(_ state: GameState, level: LevelDefinition) {
-        let revenueGoalMet = state.revenuePerSecond >= level.revenueGoal
-        let uptimeGoalMet = state.uptimePercent >= level.uptimeGoal
-
-        if revenueGoalMet && uptimeGoalMet {
-            sustainTimer += tickInterval
-            if sustainTimer >= level.sustainDuration {
-                let stars = level.starsForTime(state.levelElapsedTime)
-                state.phase = .levelComplete(stars: stars)
-            }
-        } else {
-            // Reset sustain timer if goals drop below threshold
-            sustainTimer = max(0, sustainTimer - tickInterval * 0.5)
+    private func checkMilestones(_ state: GameState) {
+        if let milestone = ExpansionDefinition.checkMilestones(state: state),
+           let key = ExpansionDefinition.key(for: milestone) {
+            state.achievedMilestones.insert(key)
+            state.phase = .milestone(milestone)
         }
     }
 

@@ -1,8 +1,35 @@
 import Foundation
 import QuartzCore
 
+// MARK: - Incident Tool (drag-to-fix)
+
+enum IncidentTool: String, CaseIterable, Codable {
+    case fireExtinguisher  // for overheating
+    case shield            // for DDoS
+    case wrench            // for power outage
+    case cablePlug         // for cable failure
+
+    var displayName: String {
+        switch self {
+        case .fireExtinguisher: return "Fire Extinguisher"
+        case .shield: return "Shield"
+        case .wrench: return "Wrench"
+        case .cablePlug: return "Cable"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .fireExtinguisher: return "flame.fill"
+        case .shield: return "shield.fill"
+        case .wrench: return "wrench.fill"
+        case .cablePlug: return "cable.connector.horizontal"
+        }
+    }
+}
+
 // MARK: - Incident Type
-enum IncidentType: String, CaseIterable {
+enum IncidentType: String, CaseIterable, Codable {
     case overheating
     case ddosAttack
     case powerOutage
@@ -37,10 +64,10 @@ enum IncidentType: String, CaseIterable {
 
     var description: String {
         switch self {
-        case .overheating: return "Server temperature critical! Tap to activate emergency cooling."
-        case .ddosAttack: return "Bandwidth overwhelmed! Tap to enable firewall filters."
-        case .powerOutage: return "Power grid failing! Tap to switch to backup generator."
-        case .cableFailure: return "Network cable disconnected! Tap to reconnect."
+        case .overheating: return "Server temperature critical! Drag the extinguisher to cool it down."
+        case .ddosAttack: return "Bandwidth overwhelmed! Drag the shield to block the attack."
+        case .powerOutage: return "Power grid failing! Drag the wrench to restore power."
+        case .cableFailure: return "Network cable disconnected! Drag the cable to reconnect."
         }
     }
 
@@ -64,21 +91,21 @@ enum IncidentType: String, CaseIterable {
         }
     }
 
-    var availableInLevel: Int {
-        switch self {
-        case .overheating: return 1
-        case .cableFailure: return 1
-        case .ddosAttack: return 2
-        case .powerOutage: return 2
-        }
-    }
-
     var baseCooldown: TimeInterval {
         switch self {
         case .overheating: return 20
         case .cableFailure: return 25
         case .ddosAttack: return 30
         case .powerOutage: return 40
+        }
+    }
+
+    var requiredTool: IncidentTool {
+        switch self {
+        case .overheating: return .fireExtinguisher
+        case .ddosAttack: return .shield
+        case .powerOutage: return .wrench
+        case .cableFailure: return .cablePlug
         }
     }
 }
@@ -89,6 +116,7 @@ struct ActiveIncident: Identifiable {
     let type: IncidentType
     let affectedPosition: GridPosition
     let startTime: TimeInterval
+    let requiredTool: IncidentTool
     var resolved: Bool = false
     var failed: Bool = false
 
@@ -103,4 +131,12 @@ struct ActiveIncident: Identifiable {
     var isExpired: Bool {
         timeRemaining <= 0
     }
+}
+
+// MARK: - Telegraphed Incident
+struct TelegraphedIncident: Identifiable {
+    let id = UUID()
+    let type: IncidentType
+    let position: GridPosition
+    var countdown: TimeInterval = 2.0
 }

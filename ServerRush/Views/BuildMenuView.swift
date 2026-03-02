@@ -7,6 +7,16 @@ struct BuildMenuView: View {
 
     private let categories = EquipmentCategory.allCases
 
+    // Category pill colors
+    private func categoryColor(_ cat: EquipmentCategory) -> Color {
+        switch cat {
+        case .rack: return Color(red: 0.60, green: 0.63, blue: 0.58)    // warm gray
+        case .cooling: return Color(red: 0.55, green: 0.72, blue: 0.88) // soft blue
+        case .power: return Theme.accentGold                              // warm amber
+        case .network: return Color(red: 0.68, green: 0.58, blue: 0.82) // soft lavender
+        }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Build mode cancel bar
@@ -14,15 +24,12 @@ struct BuildMenuView: View {
                 buildModeBar
             }
 
-            // Expand/collapse handle
+            // Collapse handle
             collapseHandle
 
             if isExpanded {
                 VStack(spacing: 0) {
-                    // Category tabs
                     categoryTabs
-
-                    // Equipment grid
                     equipmentList
                 }
                 .padding(.bottom, 8)
@@ -31,19 +38,8 @@ struct BuildMenuView: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.black.opacity(0.85))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color(red: 0, green: 0.9, blue: 1).opacity(0.3), Color.clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: Color.black.opacity(0.5), radius: 10, y: -5)
+                .fill(Theme.background.opacity(0.95))
+                .shadow(color: Theme.woodTone.opacity(0.2), radius: 10, y: -4)
         )
         .padding(.horizontal, 8)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isExpanded)
@@ -55,10 +51,10 @@ struct BuildMenuView: View {
         HStack {
             if let type = gameState.buildMode {
                 Image(systemName: type.icon)
-                    .foregroundStyle(Color(red: 0, green: 0.9, blue: 1))
+                    .foregroundStyle(Theme.accent)
                 Text("Placing: \(type.displayName)")
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white)
+                    .font(Theme.bodyFont(size: 14))
+                    .foregroundStyle(Theme.textPrimary)
             }
 
             Spacer()
@@ -67,21 +63,20 @@ struct BuildMenuView: View {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 gameState.buildMode = nil
             } label: {
-                Text("CANCEL")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color(red: 1, green: 0.09, blue: 0.27))
+                Text("Cancel")
+                    .font(Theme.headlineFont(size: 12))
+                    .foregroundStyle(Theme.critical)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
                     .background(
                         Capsule()
-                            .fill(Color(red: 1, green: 0.09, blue: 0.27).opacity(0.15))
-                            .overlay(Capsule().strokeBorder(Color(red: 1, green: 0.09, blue: 0.27).opacity(0.5)))
+                            .fill(Theme.critical.opacity(0.1))
                     )
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(red: 0, green: 0.9, blue: 1).opacity(0.05))
+        .background(Theme.accent.opacity(0.06))
     }
 
     // MARK: - Collapse Handle
@@ -92,20 +87,21 @@ struct BuildMenuView: View {
             isExpanded.toggle()
         } label: {
             VStack(spacing: 4) {
+                // Wood-tone handle
                 Capsule()
-                    .fill(Color.white.opacity(0.3))
-                    .frame(width: 36, height: 4)
+                    .fill(Theme.woodTone.opacity(0.5))
+                    .frame(width: 36, height: 5)
                     .padding(.top, 8)
 
-                HStack {
+                HStack(spacing: 6) {
                     Image(systemName: "wrench.and.screwdriver.fill")
                         .font(.system(size: 12))
                     Text("BUILD")
-                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .font(Theme.headlineFont(size: 12))
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
                         .font(.system(size: 10, weight: .bold))
                 }
-                .foregroundStyle(Color(red: 0, green: 0.9, blue: 1))
+                .foregroundStyle(Theme.textPrimary)
                 .padding(.bottom, 6)
             }
         }
@@ -114,37 +110,37 @@ struct BuildMenuView: View {
     // MARK: - Category Tabs
 
     private var categoryTabs: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 8) {
             ForEach(categories, id: \.self) { category in
                 let hasItems = !itemsForCategory(category).isEmpty
+                let isSelected = selectedCategory == category
+
                 Button {
                     guard hasItems else { return }
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
                     selectedCategory = category
                 } label: {
-                    VStack(spacing: 4) {
+                    HStack(spacing: 4) {
                         Image(systemName: category.icon)
-                            .font(.system(size: 16))
+                            .font(.system(size: 12))
                         Text(category.rawValue)
-                            .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                            .font(Theme.bodyFont(size: 11))
                     }
                     .foregroundStyle(
-                        selectedCategory == category
-                            ? Color(red: 0, green: 0.9, blue: 1)
-                            : hasItems ? .gray : .gray.opacity(0.3)
+                        isSelected ? .white : (hasItems ? Theme.textPrimary : Theme.textSecondary.opacity(0.4))
                     )
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 7)
                     .background(
-                        selectedCategory == category
-                            ? Color(red: 0, green: 0.9, blue: 1).opacity(0.1)
-                            : Color.clear
+                        Capsule()
+                            .fill(isSelected ? categoryColor(category) : Theme.cardBackground.opacity(0.6))
                     )
                 }
                 .disabled(!hasItems)
             }
         }
-        .background(Color.white.opacity(0.03))
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 
     // MARK: - Equipment List
@@ -153,7 +149,7 @@ struct BuildMenuView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
                 ForEach(itemsForCategory(selectedCategory)) { item in
-                    EquipmentCard(type: item, canAfford: gameState.canAfford(item)) {
+                    WarmEquipmentCard(type: item, canAfford: gameState.canAfford(item)) {
                         UIImpactFeedbackGenerator(style: .medium).impactOccurred()
                         gameState.buildMode = item
                     }
@@ -169,9 +165,9 @@ struct BuildMenuView: View {
     }
 }
 
-// MARK: - Equipment Card
+// MARK: - Warm Equipment Card
 
-private struct EquipmentCard: View {
+private struct WarmEquipmentCard: View {
     let type: EquipmentType
     let canAfford: Bool
     let onTap: () -> Void
@@ -179,66 +175,58 @@ private struct EquipmentCard: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 6) {
-                // Icon
                 Image(systemName: type.icon)
                     .font(.system(size: 24))
-                    .foregroundStyle(canAfford ? Color(red: 0, green: 0.9, blue: 1) : .gray)
-                    .shadow(color: canAfford ? Color(red: 0, green: 0.9, blue: 1).opacity(0.4) : .clear, radius: 4)
+                    .foregroundStyle(canAfford ? Theme.accent : Theme.textSecondary.opacity(0.4))
 
-                // Name
                 Text(type.displayName)
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(canAfford ? .white : .gray)
+                    .font(Theme.bodyFont(size: 11))
+                    .foregroundStyle(canAfford ? Theme.textPrimary : Theme.textSecondary.opacity(0.5))
                     .lineLimit(1)
 
-                // Cost
-                Text("$\(Int(type.cost))")
-                    .font(.system(size: 12, weight: .bold, design: .monospaced))
-                    .foregroundStyle(canAfford ? Color(red: 0, green: 0.9, blue: 0.4) : Color(red: 1, green: 0.09, blue: 0.27))
+                // Price with coin icon
+                HStack(spacing: 3) {
+                    Text("\u{1FA99}")
+                        .font(.system(size: 10))
+                    Text("$\(Int(type.cost))")
+                        .font(Theme.moneyFont(size: 12))
+                        .foregroundStyle(canAfford ? Theme.accentGold : Theme.critical.opacity(0.6))
+                }
 
-                // Brief stats
-                statLine
+                friendlyStatLine
             }
-            .frame(width: 90)
+            .frame(width: 95)
             .padding(.vertical, 10)
             .padding(.horizontal, 6)
             .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.white.opacity(canAfford ? 0.06 : 0.02))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(
-                                canAfford
-                                    ? Color(red: 0, green: 0.9, blue: 1).opacity(0.2)
-                                    : Color.white.opacity(0.05),
-                                lineWidth: 1
-                            )
-                    )
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Theme.cardBackground.opacity(canAfford ? 1 : 0.5))
+                    .shadow(color: Theme.woodTone.opacity(canAfford ? 0.12 : 0), radius: 4, y: 2)
             )
-            .opacity(canAfford ? 1 : 0.5)
+            .opacity(canAfford ? 1 : 0.6)
         }
         .disabled(!canAfford)
     }
 
     @ViewBuilder
-    private var statLine: some View {
+    private var friendlyStatLine: some View {
         let spec = type.spec
         if spec.revenuePerSec > 0 {
-            Text("+$\(Int(spec.revenuePerSec))/s")
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color(red: 0, green: 0.9, blue: 0.4).opacity(0.8))
+            Text("Earns $\(Int(spec.revenuePerSec))/sec")
+                .font(Theme.bodyFont(size: 9))
+                .foregroundStyle(Theme.positive)
         } else if spec.powerProvide > 0 {
-            Text("+\(Int(spec.powerProvide))W")
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color(red: 1, green: 0.7, blue: 0).opacity(0.8))
+            Text("Provides \(Int(spec.powerProvide))W")
+                .font(Theme.bodyFont(size: 9))
+                .foregroundStyle(Theme.accentGold)
         } else if spec.coolingProvide > 0 {
-            Text("+\(Int(spec.coolingProvide)) cool")
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color(red: 0.3, green: 0.6, blue: 1).opacity(0.8))
+            Text("Cools \(Int(spec.coolingProvide)) units")
+                .font(Theme.bodyFont(size: 9))
+                .foregroundStyle(Color(red: 0.55, green: 0.72, blue: 0.88))
         } else if spec.bandwidthProvide > 0 {
-            Text("+\(Int(spec.bandwidthProvide)) Mbps")
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(Color(red: 0.6, green: 0.4, blue: 1).opacity(0.8))
+            Text("\(Int(spec.bandwidthProvide)) Mbps")
+                .font(Theme.bodyFont(size: 9))
+                .foregroundStyle(Color(red: 0.68, green: 0.58, blue: 0.82))
         }
     }
 }

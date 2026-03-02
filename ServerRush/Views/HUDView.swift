@@ -4,56 +4,44 @@ struct HUDView: View {
     let gameState: GameState
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Money
-            HStack(spacing: 6) {
-                Image(systemName: "dollarsign.circle.fill")
-                    .foregroundStyle(Color(red: 0, green: 0.9, blue: 0.4))
-                    .font(.system(size: 16, weight: .bold))
-
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("$\(Int(gameState.money))")
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
-                        .contentTransition(.numericText())
-
-                    Text("+$\(Int(gameState.revenuePerSecond))/s")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Color(red: 0, green: 0.9, blue: 0.4))
-                }
+        VStack(spacing: 6) {
+            // Objective banner at top
+            if let objective = gameState.currentObjective {
+                objectiveBanner(objective)
             }
 
-            Spacer()
+            // Main HUD bar
+            HStack(spacing: 14) {
+                // Money section
+                moneySection
 
-            // Resource bars
-            ResourceBarCompact(
-                icon: "bolt.fill",
-                value: gameState.powerPercent,
-                label: "\(Int(gameState.powerUsage))/\(Int(gameState.powerCapacity))"
-            )
+                Spacer()
 
-            ResourceBarCompact(
-                icon: "snowflake",
-                value: gameState.coolingPercent,
-                label: "\(Int(gameState.coolingUsage))/\(Int(gameState.coolingCapacity))"
-            )
-
-            ResourceBarCompact(
-                icon: "network",
-                value: gameState.bandwidthPercent,
-                label: "\(Int(gameState.bandwidthUsage))/\(Int(gameState.bandwidthCapacity))"
+                // Resource indicators
+                resourceIndicator(
+                    icon: "bolt.fill",
+                    percent: gameState.powerPercent,
+                    fillColor: Theme.accentGold
+                )
+                resourceIndicator(
+                    icon: "snowflake",
+                    percent: gameState.coolingPercent,
+                    fillColor: Color(red: 0.55, green: 0.72, blue: 0.88)
+                )
+                resourceIndicator(
+                    icon: "network",
+                    percent: gameState.bandwidthPercent,
+                    fillColor: Color(red: 0.68, green: 0.58, blue: 0.82)
+                )
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.lg)
+                    .fill(Theme.background.opacity(0.92))
+                    .shadow(color: Theme.woodTone.opacity(0.15), radius: 6, y: 2)
             )
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.black.opacity(0.7))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
-                )
-        )
         .padding(.horizontal, 12)
         .padding(.top, 4)
         .animation(.spring(response: 0.3), value: gameState.money)
@@ -61,53 +49,102 @@ struct HUDView: View {
         .animation(.spring(response: 0.3), value: gameState.coolingPercent)
         .animation(.spring(response: 0.3), value: gameState.bandwidthPercent)
     }
-}
 
-// MARK: - Compact Resource Bar
-private struct ResourceBarCompact: View {
-    let icon: String
-    let value: Double
-    let label: String
+    // MARK: - Money Section
 
-    private var barColor: Color {
-        if value > 80 { return Color(red: 1, green: 0.09, blue: 0.27) }
-        if value > 60 { return Color(red: 1, green: 0.7, blue: 0) }
-        return Color(red: 0, green: 0.9, blue: 0.4)
+    private var moneySection: some View {
+        HStack(spacing: 8) {
+            Text("\u{1FA99}")
+                .font(.system(size: 20))
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text("$\(Int(gameState.money))")
+                    .font(Theme.moneyFont(size: 18))
+                    .foregroundStyle(Theme.accentGold)
+                    .contentTransition(.numericText())
+
+                Text("+$\(Int(gameState.revenuePerSecond))/s")
+                    .font(Theme.bodyFont(size: 11))
+                    .foregroundStyle(Theme.positive)
+            }
+        }
     }
 
-    var body: some View {
+    // MARK: - Objective Banner
+
+    private func objectiveBanner(_ objective: Objective) -> some View {
+        HStack(spacing: 10) {
+            Text(objective.description)
+                .font(Theme.bodyFont(size: 13))
+                .foregroundStyle(Theme.textPrimary)
+                .lineLimit(1)
+
+            // Progress bar
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Theme.cardBackground)
+
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(Theme.accent)
+                        .frame(width: geo.size.width * min(objective.progress, 1.0))
+                }
+            }
+            .frame(width: 80, height: 8)
+
+            Text("\(Int(objective.progress * 100))%")
+                .font(Theme.headlineFont(size: 12))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 36, alignment: .trailing)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.Radius.md)
+                .fill(Theme.background.opacity(0.92))
+                .shadow(color: Theme.woodTone.opacity(0.1), radius: 4, y: 1)
+        )
+    }
+
+    // MARK: - Resource Indicator
+
+    private func resourceIndicator(icon: String, percent: Double, fillColor: Color) -> some View {
         HStack(spacing: 5) {
             Image(systemName: icon)
                 .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(barColor)
+                .foregroundStyle(fillColor)
                 .frame(width: 14)
 
-            VStack(alignment: .leading, spacing: 2) {
-                // Bar
+            VStack(alignment: .leading, spacing: 3) {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.white.opacity(0.1))
+                            .fill(Theme.cardBackground)
 
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(
-                                LinearGradient(
-                                    colors: [barColor.opacity(0.8), barColor],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
-                            .frame(width: geo.size.width * min(value / 100, 1.0))
-                            .shadow(color: barColor.opacity(0.5), radius: 3, x: 0, y: 0)
+                            .fill(fillColor)
+                            .frame(width: geo.size.width * min(percent / 100, 1.0))
                     }
                 }
                 .frame(width: 50, height: 6)
 
-                Text(label)
-                    .font(.system(size: 8, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.gray)
-                    .contentTransition(.numericText())
+                // Status icon instead of raw numbers
+                Text(resourceStatusText(percent))
+                    .font(Theme.bodyFont(size: 9))
+                    .foregroundStyle(resourceStatusColor(percent))
             }
         }
+    }
+
+    private func resourceStatusText(_ percent: Double) -> String {
+        if percent > 85 { return "\u{1F525} High" }
+        if percent > 60 { return "\u{26A0}\u{FE0F} Warm" }
+        return "\u{2713} Good"
+    }
+
+    private func resourceStatusColor(_ percent: Double) -> Color {
+        if percent > 85 { return Theme.critical }
+        if percent > 60 { return Theme.warning }
+        return Theme.positive
     }
 }

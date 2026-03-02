@@ -73,4 +73,48 @@ final class AudioManager {
         // bgMusicPlayer?.stop()
         // bgMusicPlayer?.currentTime = 0
     }
+
+    // MARK: - Drag-to-Fix Haptics
+
+    /// Selection feedback while dragging a tool
+    func playToolDrag() {
+        lightImpact.impactOccurred(intensity: 0.5)
+    }
+
+    /// Success notification on correct tool drop
+    func playToolDrop() {
+        notificationFeedback.notificationOccurred(.success)
+    }
+
+    /// Error notification on wrong tool drop
+    func playToolMiss() {
+        notificationFeedback.notificationOccurred(.error)
+    }
+
+    // MARK: - Expansion & Progression Haptics
+
+    /// Heavy impact + success for expansion unlock
+    func playExpansionUnlock() {
+        heavyImpact.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+            self?.notificationFeedback.notificationOccurred(.success)
+        }
+    }
+
+    /// Light impact for periodic coin earning
+    func playCoinEarned() {
+        lightImpact.impactOccurred(intensity: 0.3)
+    }
+
+    /// Triple haptic pattern for milestone achievements
+    func playMilestone() {
+        let delay: TimeInterval = 0.12
+        mediumImpact.impactOccurred()
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            self?.mediumImpact.impactOccurred()
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay * 2) { [weak self] in
+            self?.heavyImpact.impactOccurred()
+        }
+    }
 }

@@ -2,7 +2,7 @@ import Foundation
 import SpriteKit
 
 // MARK: - Equipment Type
-enum EquipmentType: String, CaseIterable, Identifiable {
+enum EquipmentType: String, CaseIterable, Identifiable, Codable {
     // Racks
     case basicRack
     case advancedRack
@@ -120,13 +120,13 @@ enum EquipmentType: String, CaseIterable, Identifiable {
         }
     }
 
-    // Colors for programmatic sprite generation
+    // Colors for programmatic sprite generation (warm palette)
     var baseColor: SKColor {
         switch category {
-        case .rack: return SKColor(red: 0.2, green: 0.8, blue: 0.6, alpha: 1) // Teal
-        case .cooling: return SKColor(red: 0.3, green: 0.6, blue: 1.0, alpha: 1) // Blue
-        case .power: return SKColor(red: 1.0, green: 0.8, blue: 0.2, alpha: 1) // Yellow
-        case .network: return SKColor(red: 0.8, green: 0.3, blue: 1.0, alpha: 1) // Purple
+        case .rack: return Theme.skRackColor       // warm gray
+        case .cooling: return Theme.skCoolingColor  // soft pastel blue
+        case .power: return Theme.skPowerColor      // warm amber
+        case .network: return Theme.skNetworkColor  // soft lavender
         }
     }
 

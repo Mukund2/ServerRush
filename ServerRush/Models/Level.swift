@@ -1,92 +1,126 @@
 import Foundation
 
-// MARK: - Level Definition
-struct LevelDefinition {
-    let id: Int
-    let name: String
-    let subtitle: String
-    let gridWidth: Int
-    let gridHeight: Int
-    let startingMoney: Double
-    let availableEquipment: [EquipmentType]
-    let availableIncidents: [IncidentType]
-    let revenueGoal: Double      // $/sec needed
-    let uptimeGoal: Double       // percentage needed
-    let sustainDuration: TimeInterval  // how long to sustain goals
-    let incidentFrequencyRange: ClosedRange<TimeInterval> // min...max seconds between incidents
+// MARK: - Expansion Definitions
 
-    // Star thresholds
-    let oneStarTime: TimeInterval    // complete within this for 1 star
-    let twoStarTime: TimeInterval    // complete within this for 2 stars
-    let threeStarTime: TimeInterval  // complete within this for 3 stars
+/// Static data and milestone logic for the expansion system.
+/// Replaces the old LevelDefinition system.
+enum ExpansionDefinition {
 
-    func starsForTime(_ time: TimeInterval) -> Int {
-        if time <= threeStarTime { return 3 }
-        if time <= twoStarTime { return 2 }
-        if time <= oneStarTime { return 1 }
-        return 1 // always at least 1 star for completing
+    // MARK: - Milestone Definitions
+
+    struct MilestoneDef {
+        let type: MilestoneType
+        let key: String
+        let check: (GameState) -> Bool
     }
-}
 
-// MARK: - Level Definitions
-extension LevelDefinition {
-    static let allLevels: [LevelDefinition] = [level1, level2, level3]
+    /// Ordered list of all milestones. Checked in order; the first unachieved one whose condition is met fires.
+    static let allMilestones: [MilestoneDef] = [
+        MilestoneDef(
+            type: .firstBuild,
+            key: "firstBuild",
+            check: { !$0.placedEquipment.isEmpty }
+        ),
+        MilestoneDef(
+            type: .revenueTarget(500),
+            key: "revenue_500",
+            check: { $0.totalMoneyEarned >= 500 }
+        ),
+        MilestoneDef(
+            type: .incidentsMastered(5),
+            key: "incidents_5",
+            check: { $0.totalIncidentsResolved >= 5 }
+        ),
+        MilestoneDef(
+            type: .firstExpansion,
+            key: "firstExpansion",
+            check: { !$0.unlockedExpansions.isEmpty }
+        ),
+        MilestoneDef(
+            type: .expansionUnlocked(1),
+            key: "expansion_1",
+            check: { $0.unlockedExpansions.contains(1) }
+        ),
+        MilestoneDef(
+            type: .expansionUnlocked(2),
+            key: "expansion_2",
+            check: { $0.unlockedExpansions.contains(2) }
+        ),
+        MilestoneDef(
+            type: .revenueTarget(5000),
+            key: "revenue_5000",
+            check: { $0.totalMoneyEarned >= 5000 }
+        ),
+        MilestoneDef(
+            type: .incidentsMastered(50),
+            key: "incidents_50",
+            check: { $0.totalIncidentsResolved >= 50 }
+        ),
+        MilestoneDef(
+            type: .expansionUnlocked(3),
+            key: "expansion_3",
+            check: { $0.unlockedExpansions.contains(3) }
+        ),
+    ]
 
-    static let level1 = LevelDefinition(
-        id: 1,
-        name: "The Server Closet",
-        subtitle: "Every empire starts somewhere...",
-        gridWidth: 8,
-        gridHeight: 8,
-        startingMoney: 500,
-        availableEquipment: [.basicRack, .basicCooling, .basicPower],
-        availableIncidents: [.overheating, .cableFailure],
-        revenueGoal: 50,
-        uptimeGoal: 90,
-        sustainDuration: 60,
-        incidentFrequencyRange: 15...30,
-        oneStarTime: 600,
-        twoStarTime: 420,
-        threeStarTime: 300
-    )
+    // MARK: - Check Milestones
 
-    static let level2 = LevelDefinition(
-        id: 2,
-        name: "The Data Center",
-        subtitle: "Time to scale up operations",
-        gridWidth: 12,
-        gridHeight: 10,
-        startingMoney: 1000,
-        availableEquipment: [.basicRack, .advancedRack, .basicCooling, .coolingTower, .basicPower, .ups, .networkSwitch],
-        availableIncidents: [.overheating, .cableFailure, .ddosAttack, .powerOutage],
-        revenueGoal: 200,
-        uptimeGoal: 95,
-        sustainDuration: 120,
-        incidentFrequencyRange: 12...25,
-        oneStarTime: 900,
-        twoStarTime: 600,
-        threeStarTime: 420
-    )
+    /// Returns the next unachieved milestone whose condition is met, or nil.
+    static func checkMilestones(state: GameState) -> MilestoneType? {
+        for def in allMilestones {
+            guard !state.achievedMilestones.contains(def.key) else { continue }
+            if def.check(state) {
+                return def.type
+            }
+        }
+        return nil
+    }
 
-    static let level3 = LevelDefinition(
-        id: 3,
-        name: "Enterprise Campus",
-        subtitle: "Go big or go home",
-        gridWidth: 16,
-        gridHeight: 14,
-        startingMoney: 2000,
-        availableEquipment: EquipmentType.allCases,
-        availableIncidents: IncidentType.allCases,
-        revenueGoal: 500,
-        uptimeGoal: 99,
-        sustainDuration: 180,
-        incidentFrequencyRange: 8...18,
-        oneStarTime: 1200,
-        twoStarTime: 900,
-        threeStarTime: 600
-    )
+    /// Returns the milestone key for a given MilestoneType, used to record it in achievedMilestones.
+    static func key(for milestone: MilestoneType) -> String? {
+        allMilestones.first { $0.type == milestone }?.key
+    }
 
-    static func forLevel(_ id: Int) -> LevelDefinition {
-        allLevels.first { $0.id == id } ?? level1
+    // MARK: - Next Objective
+
+    /// Returns the next unachieved milestone as an Objective for the HUD.
+    static func nextObjective(state: GameState) -> Objective? {
+        for def in allMilestones {
+            guard !state.achievedMilestones.contains(def.key) else { continue }
+
+            switch def.type {
+            case .firstBuild:
+                return Objective(
+                    description: "Place your first server rack",
+                    targetValue: 1,
+                    currentValue: state.placedEquipment.isEmpty ? 0 : 1
+                )
+            case .revenueTarget(let target):
+                return Objective(
+                    description: "Earn $\(Int(target)) total",
+                    targetValue: target,
+                    currentValue: state.totalMoneyEarned
+                )
+            case .incidentsMastered(let target):
+                return Objective(
+                    description: "Resolve \(target) incidents",
+                    targetValue: Double(target),
+                    currentValue: Double(state.totalIncidentsResolved)
+                )
+            case .firstExpansion:
+                return Objective(
+                    description: "Purchase your first expansion",
+                    targetValue: 1,
+                    currentValue: state.unlockedExpansions.isEmpty ? 0 : 1
+                )
+            case .expansionUnlocked(let n):
+                return Objective(
+                    description: "Unlock expansion \(n)",
+                    targetValue: 1,
+                    currentValue: state.unlockedExpansions.contains(n) ? 1 : 0
+                )
+            }
+        }
+        return nil
     }
 }

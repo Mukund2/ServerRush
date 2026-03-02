@@ -6,7 +6,6 @@ import QuartzCore
 final class IncidentScheduler {
 
     private weak var gameState: GameState?
-    private var level: LevelDefinition?
 
     // Per-type cooldown tracking (time remaining before this type can fire again)
     private var cooldowns: [IncidentType: TimeInterval] = [:]
@@ -16,19 +15,24 @@ final class IncidentScheduler {
 
     init(gameState: GameState) {
         self.gameState = gameState
+        // Initial delay before first incident
+        nextIncidentTimer = incidentInterval(rackCount: 0).upperBound
     }
 
-    func setLevel(_ level: LevelDefinition) {
-        self.level = level
-        cooldowns.removeAll()
-        // Initial delay before first incident
-        nextIncidentTimer = level.incidentFrequencyRange.lowerBound
+    // MARK: - Frequency Scaling
+
+    /// Returns the spawn interval range based on how many racks the player has.
+    /// More racks = more frequent incidents.
+    private func incidentInterval(rackCount: Int) -> ClosedRange<TimeInterval> {
+        let lo = max(5, 20 - Double(rackCount) * 2)
+        let hi = max(10, 35 - Double(rackCount) * 2)
+        return lo...hi
     }
 
     // MARK: - Tick (called once per second from GameScene)
 
     func tick() {
-        guard let state = gameState, let level = level else { return }
+        guard let state = gameState else { return }
         guard state.phase == .playing else { return }
 
         // Decrement cooldowns
@@ -36,18 +40,43 @@ final class IncidentScheduler {
             cooldowns[type] = max(0, (cooldowns[type] ?? 0) - 1)
         }
 
+        // Process telegraphed incidents (count down and convert to real incidents)
+        processTelegraphs(state)
+
         // Monitor active incidents: expire unresolved ones
         processActiveIncidents(state)
 
-        // Spawn new incidents
+        // Spawn new incidents (as telegraphs first)
         nextIncidentTimer -= 1
         if nextIncidentTimer <= 0 {
-            attemptSpawnIncident(state, level: level)
-            // Randomize next spawn interval
-            let lo = level.incidentFrequencyRange.lowerBound
-            let hi = level.incidentFrequencyRange.upperBound
-            nextIncidentTimer = TimeInterval.random(in: lo...hi)
+            attemptSpawnTelegraph(state)
+            let range = incidentInterval(rackCount: state.rackCount)
+            nextIncidentTimer = TimeInterval.random(in: range)
         }
+    }
+
+    // MARK: - Telegraph Processing
+
+    private func processTelegraphs(_ state: GameState) {
+        var remaining: [TelegraphedIncident] = []
+
+        for var telegraph in state.telegraphedIncidents {
+            telegraph.countdown -= 1
+            if telegraph.countdown <= 0 {
+                // Convert to real incident
+                let incident = ActiveIncident(
+                    type: telegraph.type,
+                    affectedPosition: telegraph.position,
+                    startTime: CACurrentMediaTime(),
+                    requiredTool: telegraph.type.requiredTool
+                )
+                state.activeIncidents.append(incident)
+            } else {
+                remaining.append(telegraph)
+            }
+        }
+
+        state.telegraphedIncidents = remaining
     }
 
     // MARK: - Process Active
@@ -74,11 +103,9 @@ final class IncidentScheduler {
             }
         }
 
-        // Remove resolved/failed incidents that have been around for a while
+        // Remove resolved/failed incidents
         state.activeIncidents = updatedIncidents.filter { incident in
-            if incident.resolved { return false }
-            if incident.failed { return false }
-            return true
+            !incident.resolved && !incident.failed
         }
     }
 
@@ -114,11 +141,11 @@ final class IncidentScheduler {
         }
     }
 
-    // MARK: - Spawn
+    // MARK: - Spawn (Telegraph)
 
-    private func attemptSpawnIncident(_ state: GameState, level: LevelDefinition) {
-        // Filter to incident types available in this level and off cooldown
-        let eligible = level.availableIncidents.filter { type in
+    private func attemptSpawnTelegraph(_ state: GameState) {
+        // All incident types are available from the start (no level filtering)
+        let eligible = IncidentType.allCases.filter { type in
             (cooldowns[type] ?? 0) <= 0
         }
         guard !eligible.isEmpty else { return }
@@ -129,21 +156,23 @@ final class IncidentScheduler {
         }
         guard !onlineRacks.isEmpty else { return }
 
-        // Already has incident on this position?
+        // Already has incident or telegraph on this position?
         let incidentPositions = Set(state.activeIncidents.map(\.affectedPosition))
-        let targetable = onlineRacks.filter { !incidentPositions.contains($0.key) }
+        let telegraphPositions = Set(state.telegraphedIncidents.map(\.position))
+        let occupiedPositions = incidentPositions.union(telegraphPositions)
+        let targetable = onlineRacks.filter { !occupiedPositions.contains($0.key) }
         guard !targetable.isEmpty else { return }
 
         // Pick random type and target
         let type = eligible.randomElement()!
         let target = targetable.randomElement()!
 
-        let incident = ActiveIncident(
+        // Create telegraph instead of immediate incident
+        let telegraph = TelegraphedIncident(
             type: type,
-            affectedPosition: target.key,
-            startTime: CACurrentMediaTime()
+            position: target.key
         )
-        state.activeIncidents.append(incident)
+        state.telegraphedIncidents.append(telegraph)
 
         // Set cooldown
         cooldowns[type] = type.baseCooldown
@@ -152,7 +181,6 @@ final class IncidentScheduler {
     // MARK: - Escalation
 
     private func escalatePowerOutage(from position: GridPosition, state: GameState) {
-        // Affect all racks within 2-tile radius
         for pos in state.placedEquipment.keys {
             guard var eq = state.placedEquipment[pos] else { continue }
             guard eq.type.category == .rack, eq.status != .offline else { continue }
@@ -178,6 +206,7 @@ final class IncidentScheduler {
         }) {
             state.activeIncidents[idx].resolved = true
             state.resolvedIncidentCount += 1
+            state.totalIncidentsResolved += 1
 
             // Partial health recovery
             if var eq = state.placedEquipment[position] {

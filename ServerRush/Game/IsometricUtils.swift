@@ -79,30 +79,52 @@ enum IsometricUtils {
 
 enum TextureFactory {
 
+    // MARK: - Diamond Path Helper
+
+    private static func diamondPath(width w: CGFloat, height h: CGFloat) -> CGMutablePath {
+        let path = CGMutablePath()
+        path.move(to: CGPoint(x: w / 2, y: 0))
+        path.addLine(to: CGPoint(x: w, y: h / 2))
+        path.addLine(to: CGPoint(x: w / 2, y: h))
+        path.addLine(to: CGPoint(x: 0, y: h / 2))
+        path.closeSubpath()
+        return path
+    }
+
     // MARK: Floor Tile
 
+    /// Warm beige diamond with subtle wood-grain lines.
     static func floorTileTexture() -> SKTexture {
         let w = IsometricConstants.tileWidth
         let h = IsometricConstants.tileHeight
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: w, height: h))
         let image = renderer.image { ctx in
             let gc = ctx.cgContext
+            let path = diamondPath(width: w, height: h)
 
-            // Diamond path
-            let path = CGMutablePath()
-            path.move(to: CGPoint(x: w / 2, y: 0))           // top
-            path.addLine(to: CGPoint(x: w, y: h / 2))        // right
-            path.addLine(to: CGPoint(x: w / 2, y: h))        // bottom
-            path.addLine(to: CGPoint(x: 0, y: h / 2))        // left
-            path.closeSubpath()
-
-            // Fill dark blue-gray
-            gc.setFillColor(UIColor(red: 0.106, green: 0.157, blue: 0.220, alpha: 1).cgColor)
+            // Warm beige fill
+            gc.setFillColor(UIColor(red: 0.90, green: 0.84, blue: 0.75, alpha: 1).cgColor)
             gc.addPath(path)
             gc.fillPath()
 
-            // Subtle grid border
-            gc.setStrokeColor(UIColor(red: 0.18, green: 0.24, blue: 0.32, alpha: 1).cgColor)
+            // Subtle wood-grain lines
+            gc.saveGState()
+            gc.addPath(path)
+            gc.clip()
+            gc.setStrokeColor(UIColor(red: 0.82, green: 0.75, blue: 0.65, alpha: 0.4).cgColor)
+            gc.setLineWidth(0.5)
+            let grainSpacing: CGFloat = 6
+            var y: CGFloat = 0
+            while y < h {
+                gc.move(to: CGPoint(x: 0, y: y))
+                gc.addLine(to: CGPoint(x: w, y: y))
+                y += grainSpacing
+            }
+            gc.strokePath()
+            gc.restoreGState()
+
+            // Warm brown border
+            gc.setStrokeColor(UIColor(red: 0.73, green: 0.64, blue: 0.52, alpha: 0.6).cgColor)
             gc.setLineWidth(1)
             gc.addPath(path)
             gc.strokePath()
@@ -112,8 +134,7 @@ enum TextureFactory {
 
     // MARK: Equipment Texture
 
-    /// Generate an isometric block texture for equipment.
-    /// Height varies by tier (1=short, 2=medium, 3=tall).
+    /// Warm-toned isometric block per category with wood base accent.
     static func equipmentTexture(for type: EquipmentType, status: EquipmentStatus = .normal) -> SKTexture {
         let w = IsometricConstants.tileWidth
         let blockHeight: CGFloat = CGFloat(8 + type.tier * 8)
@@ -125,8 +146,6 @@ enum TextureFactory {
             let gc = ctx.cgContext
             let hw = w / 2
             let hh = IsometricConstants.tileHeight / 2
-
-            // Vertical offset so base aligns with tile center
             let baseY = blockHeight
 
             // --- Top face (lighter) ---
@@ -137,7 +156,7 @@ enum TextureFactory {
             top.addLine(to: CGPoint(x: 0, y: baseY))
             top.closeSubpath()
 
-            gc.setFillColor(baseColor.lighter(by: 0.2).cgColor)
+            gc.setFillColor(baseColor.lighter(by: 0.15).cgColor)
             gc.addPath(top)
             gc.fillPath()
 
@@ -161,21 +180,44 @@ enum TextureFactory {
             right.addLine(to: CGPoint(x: w, y: totalH - hh))
             right.closeSubpath()
 
-            gc.setFillColor(baseColor.darker(by: 0.25).cgColor)
+            gc.setFillColor(baseColor.darker(by: 0.18).cgColor)
             gc.addPath(right)
             gc.fillPath()
 
-            // --- LED dots for racks ---
+            // --- Wood base strip (bottom 3px of each face) ---
+            let woodColor = Theme.skWoodTone
+            let stripH: CGFloat = 3
+
+            // Left wood strip
+            let woodLeft = CGMutablePath()
+            woodLeft.move(to: CGPoint(x: 0, y: totalH - hh))
+            woodLeft.addLine(to: CGPoint(x: hw, y: totalH))
+            woodLeft.addLine(to: CGPoint(x: hw, y: totalH - stripH))
+            woodLeft.addLine(to: CGPoint(x: 0, y: totalH - hh - stripH + hh * stripH / (totalH - baseY)))
+            woodLeft.closeSubpath()
+            gc.setFillColor(woodColor.cgColor)
+            gc.addPath(woodLeft); gc.fillPath()
+
+            // Right wood strip
+            let woodRight = CGMutablePath()
+            woodRight.move(to: CGPoint(x: w, y: totalH - hh))
+            woodRight.addLine(to: CGPoint(x: hw, y: totalH))
+            woodRight.addLine(to: CGPoint(x: hw, y: totalH - stripH))
+            woodRight.addLine(to: CGPoint(x: w, y: totalH - hh - stripH + hh * stripH / (totalH - baseY)))
+            woodRight.closeSubpath()
+            gc.setFillColor(woodColor.darker(by: 0.1).cgColor)
+            gc.addPath(woodRight); gc.fillPath()
+
+            // --- LED dots for racks (sage green) ---
             if type.category == .rack {
                 let ledColor: UIColor
                 switch status {
-                case .normal: ledColor = UIColor(red: 0.2, green: 1.0, blue: 0.4, alpha: 1)
-                case .warning: ledColor = UIColor(red: 1.0, green: 0.9, blue: 0.2, alpha: 1)
-                case .critical, .offline: ledColor = UIColor(red: 1.0, green: 0.2, blue: 0.2, alpha: 1)
+                case .normal: ledColor = Theme.skPositive              // warm sage green
+                case .warning: ledColor = Theme.skWarning              // warm gold
+                case .critical, .offline: ledColor = Theme.skCritical  // warm rust
                 }
                 gc.setFillColor(ledColor.cgColor)
                 let ledSize: CGFloat = 3
-                // Draw 2 LED dots on left face
                 for i in 0..<2 {
                     let ly = baseY + hh * 0.4 + CGFloat(i) * (blockHeight * 0.35)
                     let lx: CGFloat = hw * 0.35
@@ -183,8 +225,8 @@ enum TextureFactory {
                 }
             }
 
-            // Edge outlines
-            gc.setStrokeColor(UIColor.black.withAlphaComponent(0.3).cgColor)
+            // Soft edge outlines (warm brown, not black)
+            gc.setStrokeColor(UIColor(red: 0.45, green: 0.35, blue: 0.25, alpha: 0.25).cgColor)
             gc.setLineWidth(0.5)
             gc.addPath(top); gc.strokePath()
             gc.addPath(left); gc.strokePath()
@@ -193,14 +235,16 @@ enum TextureFactory {
         return SKTexture(image: image)
     }
 
-    /// Ghost (semi-transparent) equipment texture for build preview.
+    // MARK: Ghost Texture
+
+    /// Warm green/warm red translucent build preview.
     static func ghostTexture(for type: EquipmentType, valid: Bool) -> SKTexture {
         let w = IsometricConstants.tileWidth
         let blockHeight: CGFloat = CGFloat(8 + type.tier * 8)
         let totalH = IsometricConstants.tileHeight + blockHeight
         let tint: UIColor = valid
-            ? UIColor(red: 0.2, green: 1.0, blue: 0.4, alpha: 0.4)
-            : UIColor(red: 1.0, green: 0.2, blue: 0.2, alpha: 0.4)
+            ? Theme.skPositive.withAlphaComponent(0.45)   // warm sage green
+            : Theme.skCritical.withAlphaComponent(0.45)    // warm rust
 
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: w, height: totalH))
         let image = renderer.image { ctx in
@@ -209,7 +253,6 @@ enum TextureFactory {
             let hh = IsometricConstants.tileHeight / 2
             let baseY = blockHeight
 
-            // Top face
             let top = CGMutablePath()
             top.move(to: CGPoint(x: hw, y: baseY - hh))
             top.addLine(to: CGPoint(x: w, y: baseY))
@@ -219,7 +262,6 @@ enum TextureFactory {
             gc.setFillColor(tint.cgColor)
             gc.addPath(top); gc.fillPath()
 
-            // Left face
             let left = CGMutablePath()
             left.move(to: CGPoint(x: 0, y: baseY))
             left.addLine(to: CGPoint(x: hw, y: baseY + hh))
@@ -229,7 +271,6 @@ enum TextureFactory {
             gc.setFillColor(tint.withAlphaComponent(0.3).cgColor)
             gc.addPath(left); gc.fillPath()
 
-            // Right face
             let right = CGMutablePath()
             right.move(to: CGPoint(x: w, y: baseY))
             right.addLine(to: CGPoint(x: hw, y: baseY + hh))
@@ -248,42 +289,39 @@ enum TextureFactory {
         return SKTexture(image: image)
     }
 
-    /// Highlight tile overlay (selection indicator).
+    // MARK: Selection Tile
+
+    /// Warm orange highlight diamond.
     static func selectionTileTexture() -> SKTexture {
         let w = IsometricConstants.tileWidth
         let h = IsometricConstants.tileHeight
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: w, height: h))
         let image = renderer.image { ctx in
             let gc = ctx.cgContext
-            let path = CGMutablePath()
-            path.move(to: CGPoint(x: w / 2, y: 0))
-            path.addLine(to: CGPoint(x: w, y: h / 2))
-            path.addLine(to: CGPoint(x: w / 2, y: h))
-            path.addLine(to: CGPoint(x: 0, y: h / 2))
-            path.closeSubpath()
+            let path = diamondPath(width: w, height: h)
 
-            gc.setFillColor(UIColor.white.withAlphaComponent(0.15).cgColor)
+            gc.setFillColor(Theme.skAccent.withAlphaComponent(0.2).cgColor)
             gc.addPath(path); gc.fillPath()
 
-            gc.setStrokeColor(UIColor.white.withAlphaComponent(0.6).cgColor)
+            gc.setStrokeColor(Theme.skAccent.withAlphaComponent(0.7).cgColor)
             gc.setLineWidth(2)
             gc.addPath(path); gc.strokePath()
         }
         return SKTexture(image: image)
     }
 
-    /// Incident indicator texture (pulsing red exclamation circle).
+    // MARK: Incident Indicator
+
+    /// Warm rust circle with white exclamation mark.
     static func incidentIndicatorTexture() -> SKTexture {
         let size: CGFloat = 24
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
         let image = renderer.image { ctx in
             let gc = ctx.cgContext
-            // Red circle
-            gc.setFillColor(UIColor(red: 1, green: 0.15, blue: 0.15, alpha: 0.9).cgColor)
+            gc.setFillColor(Theme.skCritical.withAlphaComponent(0.9).cgColor)
             gc.fillEllipse(in: CGRect(x: 1, y: 1, width: size - 2, height: size - 2))
-            // White exclamation mark
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: UIFont.boldSystemFont(ofSize: 16),
+                .font: Theme.headlineUIFont(size: 16),
                 .foregroundColor: UIColor.white
             ]
             let text = "!" as NSString
@@ -295,6 +333,141 @@ enum TextureFactory {
                 height: textSize.height
             )
             text.draw(in: textRect, withAttributes: attrs)
+        }
+        return SKTexture(image: image)
+    }
+
+    // MARK: Expansion Tile
+
+    /// Locked area diamond with coin icon and price text.
+    static func expansionTileTexture(cost: Double) -> SKTexture {
+        let w = IsometricConstants.tileWidth
+        let h = IsometricConstants.tileHeight + 14 // extra height for price label
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: w, height: h))
+        let image = renderer.image { ctx in
+            let gc = ctx.cgContext
+
+            // Hatched locked diamond
+            let path = CGMutablePath()
+            path.move(to: CGPoint(x: w / 2, y: 4))
+            path.addLine(to: CGPoint(x: w, y: 4 + IsometricConstants.tileHeight / 2))
+            path.addLine(to: CGPoint(x: w / 2, y: 4 + IsometricConstants.tileHeight))
+            path.addLine(to: CGPoint(x: 0, y: 4 + IsometricConstants.tileHeight / 2))
+            path.closeSubpath()
+
+            // Dim warm fill
+            gc.setFillColor(Theme.skAccentGold.withAlphaComponent(0.15).cgColor)
+            gc.addPath(path); gc.fillPath()
+
+            // Cross-hatch pattern inside diamond
+            gc.saveGState()
+            gc.addPath(path); gc.clip()
+            gc.setStrokeColor(Theme.skAccentGold.withAlphaComponent(0.2).cgColor)
+            gc.setLineWidth(0.5)
+            let step: CGFloat = 8
+            var x: CGFloat = -w
+            while x < w * 2 {
+                gc.move(to: CGPoint(x: x, y: 0))
+                gc.addLine(to: CGPoint(x: x + h, y: h))
+                gc.move(to: CGPoint(x: x + h, y: 0))
+                gc.addLine(to: CGPoint(x: x, y: h))
+                x += step
+            }
+            gc.strokePath()
+            gc.restoreGState()
+
+            // Border
+            gc.setStrokeColor(Theme.skAccentGold.withAlphaComponent(0.5).cgColor)
+            gc.setLineWidth(1)
+            gc.setLineDash(phase: 0, lengths: [3, 3])
+            gc.addPath(path); gc.strokePath()
+
+            // Coin icon (small gold circle)
+            let coinSize: CGFloat = 8
+            let coinX = w / 2 - coinSize - 2
+            let coinY = 4 + IsometricConstants.tileHeight / 2 - coinSize / 2
+            gc.setLineDash(phase: 0, lengths: [])
+            gc.setFillColor(Theme.skAccentGold.cgColor)
+            gc.fillEllipse(in: CGRect(x: coinX, y: coinY, width: coinSize, height: coinSize))
+            gc.setStrokeColor(Theme.skWoodTone.cgColor)
+            gc.setLineWidth(0.5)
+            gc.strokeEllipse(in: CGRect(x: coinX, y: coinY, width: coinSize, height: coinSize))
+
+            // Price text
+            let priceStr: String
+            if cost >= 1000 {
+                priceStr = String(format: "%.0fk", cost / 1000)
+            } else {
+                priceStr = String(format: "%.0f", cost)
+            }
+            let attrs: [NSAttributedString.Key: Any] = [
+                .font: Theme.headlineUIFont(size: 8),
+                .foregroundColor: Theme.skTextPrimary
+            ]
+            let nsStr = priceStr as NSString
+            let textSize = nsStr.size(withAttributes: attrs)
+            let textX = w / 2 + 2
+            let textY = 4 + IsometricConstants.tileHeight / 2 - textSize.height / 2
+            nsStr.draw(at: CGPoint(x: textX, y: textY), withAttributes: attrs)
+        }
+        return SKTexture(image: image)
+    }
+
+    // MARK: Tool Icon
+
+    /// 48x48 tool icon texture for drag-to-fix mechanic.
+    static func toolIconTexture(tool: IncidentTool) -> SKTexture {
+        let size: CGFloat = 48
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: size, height: size))
+        let image = renderer.image { ctx in
+            let gc = ctx.cgContext
+
+            // Warm rounded background circle
+            gc.setFillColor(Theme.skCardBackground.withAlphaComponent(0.9).cgColor)
+            gc.fillEllipse(in: CGRect(x: 2, y: 2, width: size - 4, height: size - 4))
+            gc.setStrokeColor(Theme.skAccent.withAlphaComponent(0.6).cgColor)
+            gc.setLineWidth(2)
+            gc.strokeEllipse(in: CGRect(x: 2, y: 2, width: size - 4, height: size - 4))
+
+            // Draw tool symbol using SF Symbol-like rendering
+            let toolColor: UIColor
+            let symbol: String
+            switch tool {
+            case .fireExtinguisher:
+                toolColor = Theme.skCritical
+                symbol = "\u{1F9EF}"  // fire extinguisher emoji fallback
+            case .shield:
+                toolColor = UIColor(red: 0.4, green: 0.5, blue: 0.75, alpha: 1)
+                symbol = "\u{1F6E1}"
+            case .wrench:
+                toolColor = Theme.skAccentGold
+                symbol = "\u{1F527}"
+            case .cablePlug:
+                toolColor = Theme.skAccent
+                symbol = "\u{1F50C}"
+            }
+
+            // Use SF Symbol image if available
+            let config = UIImage.SymbolConfiguration(pointSize: 22, weight: .medium)
+            if let sfImage = UIImage(systemName: tool.icon, withConfiguration: config) {
+                let tinted = sfImage.withTintColor(toolColor, renderingMode: .alwaysOriginal)
+                let imgSize = tinted.size
+                let imgRect = CGRect(
+                    x: (size - imgSize.width) / 2,
+                    y: (size - imgSize.height) / 2,
+                    width: imgSize.width,
+                    height: imgSize.height
+                )
+                tinted.draw(in: imgRect)
+            } else {
+                // Fallback: draw emoji
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: UIFont.systemFont(ofSize: 20)
+                ]
+                let ns = symbol as NSString
+                let ts = ns.size(withAttributes: attrs)
+                ns.draw(at: CGPoint(x: (size - ts.width) / 2, y: (size - ts.height) / 2), withAttributes: attrs)
+            }
         }
         return SKTexture(image: image)
     }

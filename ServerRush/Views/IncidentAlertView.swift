@@ -6,7 +6,7 @@ struct IncidentAlertView: View {
     var body: some View {
         VStack(spacing: 8) {
             ForEach(gameState.activeIncidents.filter { !$0.resolved && !$0.failed }) { incident in
-                IncidentCard(incident: incident) {
+                WarmIncidentCard(incident: incident) {
                     resolveIncident(incident)
                 }
                 .transition(.asymmetric(
@@ -26,7 +26,6 @@ struct IncidentAlertView: View {
             gameState.activeIncidents[idx].resolved = true
             gameState.resolvedIncidentCount += 1
 
-            // Remove after a brief delay for animation
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 gameState.activeIncidents.removeAll { $0.id == incident.id }
             }
@@ -34,93 +33,110 @@ struct IncidentAlertView: View {
     }
 }
 
-// MARK: - Incident Card
+// MARK: - Warm Incident Card
 
-private struct IncidentCard: View {
+private struct WarmIncidentCard: View {
     let incident: ActiveIncident
     let onResolve: () -> Void
 
     @State private var isPulsing = false
 
-    private var incidentColor: Color {
+    private var incidentEmoji: String {
         switch incident.type {
-        case .overheating: return Color(red: 1, green: 0.09, blue: 0.27)
-        case .ddosAttack: return Color(red: 0.6, green: 0.2, blue: 1)
-        case .powerOutage: return Color(red: 1, green: 0.7, blue: 0)
-        case .cableFailure: return Color(red: 1, green: 0.5, blue: 0)
+        case .overheating: return "\u{1F975}"   // hot face
+        case .ddosAttack: return "\u{1F6E1}"    // shield
+        case .powerOutage: return "\u{26A1}"    // zap
+        case .cableFailure: return "\u{1F50C}"  // plug
+        }
+    }
+
+    private var incidentMessage: String {
+        switch incident.type {
+        case .overheating: return "Server is getting toasty! Cool it down!"
+        case .ddosAttack: return "Under attack! Raise the shields!"
+        case .powerOutage: return "Lights out! Time for a quick fix!"
+        case .cableFailure: return "Whoops! Something came unplugged!"
+        }
+    }
+
+    private var toolEmoji: String {
+        switch incident.type.requiredTool {
+        case .fireExtinguisher: return "\u{1F9EF}"  // fire extinguisher
+        case .shield: return "\u{1F6E1}"            // shield
+        case .wrench: return "\u{1F527}"            // wrench
+        case .cablePlug: return "\u{1F50C}"         // plug
+        }
+    }
+
+    private var incidentAccentColor: Color {
+        switch incident.type {
+        case .overheating: return Theme.critical
+        case .ddosAttack: return Color(red: 0.68, green: 0.58, blue: 0.82)
+        case .powerOutage: return Theme.accentGold
+        case .cableFailure: return Theme.accent
         }
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Header with emoji face + description
             HStack(spacing: 8) {
-                // Pulsing icon
-                Image(systemName: incident.type.icon)
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundStyle(incidentColor)
-                    .shadow(color: incidentColor.opacity(isPulsing ? 0.8 : 0.3), radius: isPulsing ? 8 : 3)
+                Text(incidentEmoji)
+                    .font(.system(size: 22))
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(incident.type.displayName)
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
+                    Text(incidentMessage)
+                        .font(Theme.bodyFont(size: 11))
+                        .foregroundStyle(Theme.textPrimary)
+                        .lineLimit(2)
 
-                    Text("Rack (\(incident.affectedPosition.col),\(incident.affectedPosition.row))")
-                        .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.gray)
+                    Text("Rack at (\(incident.affectedPosition.col),\(incident.affectedPosition.row))")
+                        .font(Theme.bodyFont(size: 9))
+                        .foregroundStyle(Theme.textSecondary)
                 }
 
                 Spacer(minLength: 4)
             }
 
-            // Timer bar
+            // Timer bar (warm orange draining left to right)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(Color.white.opacity(0.1))
+                        .fill(Theme.cardBackground)
 
                     RoundedRectangle(cornerRadius: 3)
-                        .fill(
-                            LinearGradient(
-                                colors: [incidentColor, incidentColor.opacity(0.6)],
-                                startPoint: .leading,
-                                endPoint: .trailing
-                            )
-                        )
+                        .fill(Theme.accent)
                         .frame(width: geo.size.width * (1.0 - incident.progress))
-                        .shadow(color: incidentColor.opacity(0.5), radius: 3)
                 }
             }
             .frame(height: 5)
 
-            // Resolve button
-            Button(action: onResolve) {
-                HStack(spacing: 4) {
-                    Image(systemName: "wrench.fill")
-                        .font(.system(size: 11))
-                    Text("RESOLVE")
-                        .font(.system(size: 11, weight: .black, design: .monospaced))
-                }
-                .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 7)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(incidentColor.opacity(0.8))
-                        .shadow(color: incidentColor.opacity(0.4), radius: 4)
-                )
+            // Drag hint
+            HStack(spacing: 4) {
+                Text("Drag \(toolEmoji) to fix!")
+                    .font(Theme.headlineFont(size: 11))
+                    .foregroundStyle(Theme.textPrimary)
             }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                    .fill(incidentAccentColor.opacity(0.15))
+            )
         }
         .padding(12)
-        .frame(width: 180)
+        .frame(width: 190)
         .background(
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color.black.opacity(0.85))
+                .fill(Theme.background)
                 .overlay(
                     RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(incidentColor.opacity(isPulsing ? 0.6 : 0.25), lineWidth: 1.5)
+                        .strokeBorder(
+                            incidentAccentColor.opacity(isPulsing ? 0.5 : 0.2),
+                            lineWidth: 1.5
+                        )
                 )
-                .shadow(color: incidentColor.opacity(0.2), radius: 8)
+                .shadow(color: incidentAccentColor.opacity(0.15), radius: 6)
         )
         .onAppear {
             withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {

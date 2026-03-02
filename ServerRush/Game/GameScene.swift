@@ -12,24 +12,41 @@ final class GameScene: SKScene {
     private var cameraController = CameraController()
     private var simulationEngine: SimulationEngine!
     private var incidentScheduler: IncidentScheduler!
-    private var inputHandler: InputHandler!
+    private(set) var inputHandler: InputHandler!
 
     // Layers
     private let floorLayer = SKNode()
     private let equipmentLayer = SKNode()
     private let effectLayer = SKNode()
+    private let guideLayer = SKNode()
 
     // Sprite tracking
     private var equipmentSprites: [GridPosition: SKSpriteNode] = [:]
     private var incidentIndicators: [GridPosition: SKSpriteNode] = [:]
+    private var toolIconSprites: [GridPosition: SKSpriteNode] = [:]
+    private var expansionTileSprites: [Int: SKSpriteNode] = [:]
     private var selectionSprite: SKSpriteNode?
     private var ghostSprite: SKSpriteNode?
+
+    // Guide character
+    private var guideSprite: SKSpriteNode?
+    private var guideTargetPosition: CGPoint?
+    private var guideWanderTimer: TimeInterval = 0
+    private let guideWanderInterval: TimeInterval = 5.0
+
+    // Dragged tool sprite (for drag-to-fix)
+    var draggedToolSprite: SKSpriteNode?
+
+    // Coin particle timer
+    private var coinTimer: TimeInterval = 0
+    private let coinInterval: TimeInterval = 3.0
 
     // Cached textures
     private var floorTexture: SKTexture!
     private var selectionTexture: SKTexture!
     private var incidentTexture: SKTexture!
     private var equipmentTextures: [String: SKTexture] = [:]
+    private var toolTextures: [IncidentTool: SKTexture] = [:]
 
     // Timing
     private var lastUpdateTime: TimeInterval = 0
@@ -41,10 +58,13 @@ final class GameScene: SKScene {
     private var ledBlinkTimer: TimeInterval = 0
     private let ledBlinkInterval: TimeInterval = 0.5
 
+    // Telegraph tracking
+    private var telegraphNodes: [GridPosition: SKNode] = [:]
+
     // MARK: - Scene Lifecycle
 
     override func didMove(to view: SKView) {
-        backgroundColor = SKColor(red: 0.08, green: 0.10, blue: 0.14, alpha: 1)
+        backgroundColor = Theme.skBackground
         anchorPoint = CGPoint(x: 0.5, y: 0.5)
 
         // Initialize subsystems
@@ -56,14 +76,19 @@ final class GameScene: SKScene {
         floorTexture = TextureFactory.floorTileTexture()
         selectionTexture = TextureFactory.selectionTileTexture()
         incidentTexture = TextureFactory.incidentIndicatorTexture()
+        for tool in IncidentTool.allCases {
+            toolTextures[tool] = TextureFactory.toolIconTexture(tool: tool)
+        }
 
         // Layer hierarchy
         floorLayer.zPosition = IsometricConstants.floorLayer
         equipmentLayer.zPosition = IsometricConstants.objectLayer
         effectLayer.zPosition = IsometricConstants.effectLayer
+        guideLayer.zPosition = IsometricConstants.effectLayer + 50
         addChild(floorLayer)
         addChild(equipmentLayer)
         addChild(effectLayer)
+        addChild(guideLayer)
 
         // Camera
         cameraController.attach(to: self)
@@ -74,7 +99,7 @@ final class GameScene: SKScene {
         )
         cameraController.installGestures(on: view)
 
-        // Build floor grid
+        // Build floor grid (6x6 initial)
         buildFloorGrid()
 
         // Place any pre-existing equipment (for loaded games)
@@ -82,10 +107,8 @@ final class GameScene: SKScene {
             addEquipmentSprite(for: eq.type, at: pos, status: eq.status)
         }
 
-        // Set level on subsystems
-        let level = LevelDefinition.forLevel(gameState.currentLevel)
-        simulationEngine.setLevel(level)
-        incidentScheduler.setLevel(level)
+        // Spawn guide character
+        spawnGuideCharacter()
     }
 
     override func willMove(from view: SKView) {
@@ -95,6 +118,9 @@ final class GameScene: SKScene {
     // MARK: - Floor Grid
 
     private func buildFloorGrid() {
+        floorLayer.removeAllChildren()
+        selectionSprite = nil
+
         for col in 0..<gameState.gridWidth {
             for row in 0..<gameState.gridHeight {
                 let screenPos = IsometricUtils.gridToScreen(col: col, row: row)
@@ -106,17 +132,24 @@ final class GameScene: SKScene {
         }
     }
 
+    /// Rebuild the floor grid after an expansion.
+    func rebuildFloorGrid() {
+        buildFloorGrid()
+        cameraController.configure(
+            gridWidth: gameState.gridWidth,
+            gridHeight: gameState.gridHeight,
+            sceneSize: size
+        )
+    }
+
     // MARK: - Equipment Sprites
 
     func addEquipmentSprite(for type: EquipmentType, at pos: GridPosition, status: EquipmentStatus = .normal) {
-        // Remove old sprite if any
         equipmentSprites[pos]?.removeFromParent()
 
         let texture = cachedEquipmentTexture(type: type, status: status)
         let sprite = SKSpriteNode(texture: texture)
         let screenPos = IsometricUtils.gridToScreen(col: pos.col, row: pos.row)
-
-        // Offset upward so block base sits on tile center
         let blockHeight = CGFloat(8 + type.tier * 8)
         sprite.position = CGPoint(x: screenPos.x, y: screenPos.y + blockHeight / 2)
         sprite.zPosition = IsometricUtils.depthForPosition(col: pos.col, row: pos.row, layer: IsometricConstants.objectLayer)
@@ -124,12 +157,16 @@ final class GameScene: SKScene {
         equipmentLayer.addChild(sprite)
         equipmentSprites[pos] = sprite
 
-        // Pop-in animation
+        // Bounce-in animation (bigger)
         sprite.setScale(0)
         sprite.run(SKAction.sequence([
-            SKAction.scale(to: 1.15, duration: 0.15),
-            SKAction.scale(to: 1.0, duration: 0.08)
+            SKAction.scale(to: 1.25, duration: 0.12),
+            SKAction.scale(to: 0.95, duration: 0.06),
+            SKAction.scale(to: 1.0, duration: 0.06)
         ]))
+
+        // Dust puff particle on placement
+        spawnDustPuff(at: screenPos)
     }
 
     func removeEquipmentSprite(at pos: GridPosition) {
@@ -143,6 +180,252 @@ final class GameScene: SKScene {
         let tex = TextureFactory.equipmentTexture(for: type, status: status)
         equipmentTextures[key] = tex
         return tex
+    }
+
+    // MARK: - Guide Character
+
+    private func spawnGuideCharacter() {
+        let guideSize: CGFloat = 20
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: guideSize, height: guideSize))
+        let guideImage = renderer.image { ctx in
+            let gc = ctx.cgContext
+            // Round warm body
+            gc.setFillColor(Theme.skAccent.cgColor)
+            gc.fillEllipse(in: CGRect(x: 2, y: 4, width: guideSize - 4, height: guideSize - 4))
+            // Eyes
+            gc.setFillColor(UIColor.white.cgColor)
+            gc.fillEllipse(in: CGRect(x: 5, y: 8, width: 4, height: 4))
+            gc.fillEllipse(in: CGRect(x: 11, y: 8, width: 4, height: 4))
+            gc.setFillColor(Theme.skTextPrimary.cgColor)
+            gc.fillEllipse(in: CGRect(x: 6, y: 9, width: 2, height: 2))
+            gc.fillEllipse(in: CGRect(x: 12, y: 9, width: 2, height: 2))
+        }
+
+        let sprite = SKSpriteNode(texture: SKTexture(image: guideImage))
+        let startPos = IsometricUtils.gridToScreen(col: 1, row: 1)
+        sprite.position = CGPoint(x: startPos.x, y: startPos.y + 10)
+        sprite.zPosition = IsometricConstants.effectLayer + 200
+
+        // Idle bob animation
+        let bob = SKAction.repeatForever(SKAction.sequence([
+            SKAction.moveBy(x: 0, y: 3, duration: 0.8),
+            SKAction.moveBy(x: 0, y: -3, duration: 0.8)
+        ]))
+        sprite.run(bob, withKey: "idle")
+
+        guideLayer.addChild(sprite)
+        guideSprite = sprite
+    }
+
+    private func updateGuideWander(dt: TimeInterval) {
+        guideWanderTimer += dt
+        guard guideWanderTimer >= guideWanderInterval else { return }
+        guideWanderTimer = 0
+
+        // Pick a random walkable grid position
+        let col = Int.random(in: 0..<gameState.gridWidth)
+        let row = Int.random(in: 0..<gameState.gridHeight)
+        // Skip occupied tiles
+        let pos = GridPosition(col: col, row: row)
+        guard gameState.placedEquipment[pos] == nil else { return }
+
+        let target = IsometricUtils.gridToScreen(col: col, row: row)
+        let dest = CGPoint(x: target.x, y: target.y + 10)
+
+        guideSprite?.run(SKAction.move(to: dest, duration: 1.5))
+    }
+
+    // MARK: - Particle Effects
+
+    /// Dust puff on equipment placement.
+    private func spawnDustPuff(at position: CGPoint) {
+        let puffCount = 6
+        for _ in 0..<puffCount {
+            let particle = SKShapeNode(circleOfRadius: CGFloat.random(in: 2...4))
+            particle.fillColor = Theme.skCardBackground
+            particle.strokeColor = .clear
+            particle.position = position
+            particle.zPosition = IsometricConstants.effectLayer + 10
+            particle.alpha = 0.7
+            effectLayer.addChild(particle)
+
+            let dx = CGFloat.random(in: -15...15)
+            let dy = CGFloat.random(in: 5...20)
+            particle.run(SKAction.sequence([
+                SKAction.group([
+                    SKAction.moveBy(x: dx, y: dy, duration: 0.4),
+                    SKAction.fadeAlpha(to: 0, duration: 0.4),
+                    SKAction.scale(to: 0.3, duration: 0.4)
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        }
+    }
+
+    /// Green sparkle burst on incident resolution.
+    func spawnResolutionParticles(at position: GridPosition) {
+        let screenPos = IsometricUtils.gridToScreen(col: position.col, row: position.row)
+        let sparkleCount = 10
+        for _ in 0..<sparkleCount {
+            let spark = SKShapeNode(circleOfRadius: CGFloat.random(in: 1.5...3))
+            spark.fillColor = Theme.skPositive
+            spark.strokeColor = .clear
+            spark.position = CGPoint(x: screenPos.x, y: screenPos.y + 15)
+            spark.zPosition = IsometricConstants.effectLayer + 20
+            spark.alpha = 1.0
+            effectLayer.addChild(spark)
+
+            let angle = CGFloat.random(in: 0...(2 * .pi))
+            let dist = CGFloat.random(in: 15...30)
+            let dx = cos(angle) * dist
+            let dy = sin(angle) * dist
+            spark.run(SKAction.sequence([
+                SKAction.group([
+                    SKAction.moveBy(x: dx, y: dy, duration: 0.5),
+                    SKAction.fadeAlpha(to: 0, duration: 0.5),
+                    SKAction.scale(to: 0.2, duration: 0.5)
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        }
+    }
+
+    /// Smoke particles on incident failure.
+    func spawnFailureSmoke(at position: GridPosition) {
+        let screenPos = IsometricUtils.gridToScreen(col: position.col, row: position.row)
+        for _ in 0..<8 {
+            let smoke = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...6))
+            smoke.fillColor = UIColor(red: 0.4, green: 0.35, blue: 0.3, alpha: 0.6)
+            smoke.strokeColor = .clear
+            smoke.position = CGPoint(x: screenPos.x, y: screenPos.y + 10)
+            smoke.zPosition = IsometricConstants.effectLayer + 15
+            effectLayer.addChild(smoke)
+
+            let dx = CGFloat.random(in: -10...10)
+            let dy = CGFloat.random(in: 15...35)
+            smoke.run(SKAction.sequence([
+                SKAction.group([
+                    SKAction.moveBy(x: dx, y: dy, duration: 1.0),
+                    SKAction.fadeAlpha(to: 0, duration: 1.0),
+                    SKAction.scale(to: 1.5, duration: 1.0)
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        }
+    }
+
+    /// Gold coin floats upward from a rack.
+    private func spawnCoinParticle(from position: CGPoint) {
+        let coinSize: CGFloat = 6
+        let coin = SKShapeNode(ellipseOf: CGSize(width: coinSize, height: coinSize))
+        coin.fillColor = Theme.skAccentGold
+        coin.strokeColor = Theme.skWoodTone
+        coin.lineWidth = 0.5
+        coin.position = position
+        coin.zPosition = IsometricConstants.effectLayer + 5
+        effectLayer.addChild(coin)
+
+        coin.run(SKAction.sequence([
+            SKAction.group([
+                SKAction.moveBy(x: CGFloat.random(in: -5...5), y: 30, duration: 1.2),
+                SKAction.sequence([
+                    SKAction.fadeAlpha(to: 1, duration: 0.3),
+                    SKAction.wait(forDuration: 0.5),
+                    SKAction.fadeAlpha(to: 0, duration: 0.4)
+                ])
+            ]),
+            SKAction.removeFromParent()
+        ]))
+    }
+
+    /// Spawn coin particles from revenue-generating racks periodically.
+    private func updateCoinParticles(dt: TimeInterval) {
+        coinTimer += dt
+        guard coinTimer >= coinInterval else { return }
+        coinTimer = 0
+
+        let racks = gameState.placedEquipment.filter {
+            $0.value.type.category == .rack && $0.value.status != .offline
+        }
+        // Randomly pick one rack to emit a coin
+        if let rack = racks.randomElement() {
+            let screenPos = IsometricUtils.gridToScreen(col: rack.key.col, row: rack.key.row)
+            spawnCoinParticle(from: CGPoint(x: screenPos.x, y: screenPos.y + 10))
+        }
+    }
+
+    // MARK: - Incident Telegraph
+
+    /// Yellow/orange pulse on a tile 2 seconds before incident spawns.
+    func telegraphIncident(at position: GridPosition) {
+        let screenPos = IsometricUtils.gridToScreen(col: position.col, row: position.row)
+
+        let pulse = SKShapeNode(ellipseOf: CGSize(width: IsometricConstants.tileWidth * 0.8,
+                                                   height: IsometricConstants.tileHeight * 0.8))
+        pulse.fillColor = Theme.skWarning.withAlphaComponent(0.3)
+        pulse.strokeColor = Theme.skAccent.withAlphaComponent(0.6)
+        pulse.lineWidth = 1.5
+        pulse.position = screenPos
+        pulse.zPosition = IsometricConstants.decorationLayer + 100
+        floorLayer.addChild(pulse)
+        telegraphNodes[position] = pulse
+
+        // Pulsing animation for 2 seconds, then remove
+        let pulsate = SKAction.repeat(SKAction.sequence([
+            SKAction.fadeAlpha(to: 0.8, duration: 0.25),
+            SKAction.fadeAlpha(to: 0.2, duration: 0.25)
+        ]), count: 4)
+
+        pulse.run(SKAction.sequence([
+            pulsate,
+            SKAction.fadeOut(withDuration: 0.1),
+            SKAction.removeFromParent()
+        ])) { [weak self] in
+            self?.telegraphNodes.removeValue(forKey: position)
+        }
+    }
+
+    // MARK: - Tool Icons for Active Incidents
+
+    private func syncToolIcons() {
+        let activePositions = Set(
+            gameState.activeIncidents
+                .filter { !$0.resolved && !$0.failed }
+                .map(\.affectedPosition)
+        )
+
+        // Add tool icons near incident racks
+        for incident in gameState.activeIncidents where !incident.resolved && !incident.failed {
+            let pos = incident.affectedPosition
+            if toolIconSprites[pos] == nil {
+                let tool = incident.requiredTool
+                guard let texture = toolTextures[tool] else { continue }
+                let icon = SKSpriteNode(texture: texture)
+                icon.setScale(0.7)
+                let screenPos = IsometricUtils.gridToScreen(col: pos.col, row: pos.row)
+                icon.position = CGPoint(x: screenPos.x + 20, y: screenPos.y + 25)
+                icon.zPosition = IsometricConstants.effectLayer + 80
+                icon.name = "toolIcon_\(pos.col)_\(pos.row)"
+
+                // Gentle bounce
+                let bounce = SKAction.repeatForever(SKAction.sequence([
+                    SKAction.moveBy(x: 0, y: 3, duration: 0.5),
+                    SKAction.moveBy(x: 0, y: -3, duration: 0.5)
+                ]))
+                icon.run(bounce)
+
+                effectLayer.addChild(icon)
+                toolIconSprites[pos] = icon
+            }
+        }
+
+        // Remove icons for resolved/absent incidents
+        for (pos, sprite) in toolIconSprites {
+            if !activePositions.contains(pos) {
+                sprite.removeFromParent()
+                toolIconSprites.removeValue(forKey: pos)
+            }
+        }
     }
 
     // MARK: - Update Loop
@@ -178,9 +461,16 @@ final class GameScene: SKScene {
             ledBlinkPhase.toggle()
         }
 
+        // Particles
+        updateCoinParticles(dt: dt)
+
+        // Guide wander
+        updateGuideWander(dt: dt)
+
         // Sync visual state
         syncEquipmentVisuals()
         syncIncidentIndicators()
+        syncToolIcons()
         syncSelectionHighlight()
         syncGhostPreview()
     }
@@ -188,10 +478,8 @@ final class GameScene: SKScene {
     // MARK: - Visual Sync
 
     private func syncEquipmentVisuals() {
-        // Update textures for status changes and LED blinking
         for (pos, eq) in gameState.placedEquipment {
             guard let sprite = equipmentSprites[pos] else {
-                // Equipment was placed but no sprite yet
                 addEquipmentSprite(for: eq.type, at: pos, status: eq.status)
                 continue
             }
@@ -199,9 +487,13 @@ final class GameScene: SKScene {
             if sprite.texture !== tex {
                 sprite.texture = tex
             }
-            // LED blink: toggle alpha for rack LED effect
+            // LED blink for racks
             if eq.type.category == .rack {
-                sprite.alpha = ledBlinkPhase ? 1.0 : 0.85
+                sprite.alpha = ledBlinkPhase ? 1.0 : 0.88
+            }
+            // Dim offline equipment
+            if eq.status == .offline {
+                sprite.alpha = 0.5
             }
         }
 
@@ -214,34 +506,29 @@ final class GameScene: SKScene {
     }
 
     private func syncIncidentIndicators() {
-        // Current incident positions
         let activePositions = Set(
             gameState.activeIncidents
                 .filter { !$0.resolved && !$0.failed }
                 .map(\.affectedPosition)
         )
 
-        // Add missing indicators
         for pos in activePositions {
             if incidentIndicators[pos] == nil {
                 let indicator = SKSpriteNode(texture: incidentTexture)
                 let screenPos = IsometricUtils.gridToScreen(col: pos.col, row: pos.row)
                 indicator.position = CGPoint(x: screenPos.x, y: screenPos.y + 30)
                 indicator.zPosition = IsometricConstants.effectLayer + 100
-                effectLayer.addChild(indicator)
 
-                // Pulsing animation
                 let pulse = SKAction.repeatForever(SKAction.sequence([
                     SKAction.scale(to: 1.3, duration: 0.4),
                     SKAction.scale(to: 0.9, duration: 0.4)
                 ]))
                 indicator.run(pulse)
-
+                effectLayer.addChild(indicator)
                 incidentIndicators[pos] = indicator
             }
         }
 
-        // Remove resolved indicators
         for (pos, indicator) in incidentIndicators {
             if !activePositions.contains(pos) {
                 indicator.removeFromParent()
@@ -307,16 +594,26 @@ final class GameScene: SKScene {
 
     // MARK: - Incident Resolution
 
-    func resolveIncident(at position: GridPosition) {
+    func resolveIncident(at position: GridPosition, withTool tool: IncidentTool) {
+        // Check if the right tool was used
+        guard let incident = gameState.activeIncidents.first(where: {
+            $0.affectedPosition == position && !$0.resolved && !$0.failed
+        }) else { return }
+
+        guard incident.requiredTool == tool else { return }
+
         incidentScheduler.resolveIncident(at: position)
 
         // Flash effect on resolved rack
         if let sprite = equipmentSprites[position] {
             sprite.run(SKAction.sequence([
-                SKAction.colorize(with: .white, colorBlendFactor: 0.8, duration: 0.1),
+                SKAction.colorize(with: Theme.skPositive, colorBlendFactor: 0.6, duration: 0.1),
                 SKAction.colorize(withColorBlendFactor: 0, duration: 0.3)
             ]))
         }
+
+        // Resolution particles
+        spawnResolutionParticles(at: position)
     }
 
     // MARK: - Touch Handling
@@ -343,10 +640,25 @@ final class GameScene: SKScene {
         inputHandler.touchCancelled()
     }
 
-    // MARK: - Critical Incident Trigger (called from IncidentScheduler indirectly via sync)
+    // MARK: - Critical Incident Trigger
 
-    /// Called externally when a critical incident spawns to trigger screen shake.
     func onCriticalIncident() {
         screenShake(intensity: 12, duration: 0.5)
+    }
+
+    // MARK: - Helpers for InputHandler
+
+    /// Find which active incident (if any) has a tool icon at the given scene point.
+    func incidentForToolIcon(at scenePoint: CGPoint) -> ActiveIncident? {
+        for incident in gameState.activeIncidents where !incident.resolved && !incident.failed {
+            let pos = incident.affectedPosition
+            if let icon = toolIconSprites[pos] {
+                let dist = hypot(scenePoint.x - icon.position.x, scenePoint.y - icon.position.y)
+                if dist < 24 {
+                    return incident
+                }
+            }
+        }
+        return nil
     }
 }

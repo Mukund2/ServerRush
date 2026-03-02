@@ -3,60 +3,56 @@ import SwiftUI
 struct MainMenuView: View {
     let gameState: GameState
 
-    @State private var titleGlow = false
     @State private var showContent = false
+    @State private var buttonBounce = false
     @State private var pulseServer = false
-
-    // Track best stars per level (in a real app, persist with UserDefaults/AppStorage)
-    @State private var bestStars: [Int: Int] = [1: 0, 2: 0, 3: 0]
 
     var body: some View {
         VStack(spacing: 0) {
             Spacer()
 
-            // Title section
+            // Title
             titleSection
-                .padding(.bottom, 32)
+                .padding(.bottom, 28)
 
-            // Server art
-            serverArt
-                .padding(.bottom, 40)
+            // Server illustration
+            serverIllustration
+                .padding(.bottom, 36)
 
-            // Level select
-            levelSelect
-                .padding(.bottom, 24)
+            // Start / Continue buttons
+            actionButtons
+                .padding(.bottom, 20)
 
-            // Quick start
-            startButton
-                .padding(.bottom, 16)
+            // Stats summary
+            if gameState.hasSaveData {
+                statsSection
+                    .padding(.bottom, 16)
+            }
 
             Spacer()
 
             // Version
-            Text("v1.0  //  Swift Student Challenge 2026")
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.2))
+            Text("v1.0  -  Swift Student Challenge 2026")
+                .font(Theme.bodyFont(size: 10))
+                .foregroundStyle(Theme.textSecondary.opacity(0.5))
                 .padding(.bottom, 20)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(
             ZStack {
-                Color(red: 0.05, green: 0.1, blue: 0.15)
-                    .ignoresSafeArea()
-
-                // Subtle grid pattern
-                gridBackground
+                Theme.background.ignoresSafeArea()
+                dotPattern
             }
         )
         .onAppear {
             withAnimation(.easeOut(duration: 0.8)) {
                 showContent = true
             }
-            withAnimation(.easeInOut(duration: 2.0).repeatForever(autoreverses: true)) {
-                titleGlow = true
-            }
             withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
                 pulseServer = true
+            }
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.5).delay(0.5)) {
+                buttonBounce = true
             }
         }
     }
@@ -64,233 +60,187 @@ struct MainMenuView: View {
     // MARK: - Title
 
     private var titleSection: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 6) {
             Text("SERVER RUSH")
-                .font(.system(size: 40, weight: .black, design: .monospaced))
-                .foregroundStyle(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0, green: 0.9, blue: 1),
-                            Color(red: 0, green: 0.7, blue: 1),
-                            Color(red: 0, green: 0.9, blue: 1)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
-                .shadow(color: Color(red: 0, green: 0.9, blue: 1).opacity(titleGlow ? 0.8 : 0.3), radius: titleGlow ? 20 : 10)
+                .font(Theme.headlineFont(size: 40))
+                .foregroundStyle(Theme.textPrimary)
 
             Text("DATA CENTER TYCOON")
-                .font(.system(size: 14, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.4))
-                .tracking(6)
+                .font(Theme.bodyFont(size: 13))
+                .foregroundStyle(Theme.textSecondary)
+                .tracking(4)
         }
         .opacity(showContent ? 1 : 0)
         .offset(y: showContent ? 0 : -20)
     }
 
-    // MARK: - Server Art
+    // MARK: - Server Illustration
 
-    private var serverArt: some View {
-        VStack(spacing: 2) {
-            serverRow(lights: [.green, .cyan, .green, .cyan])
-            serverRow(lights: [.cyan, .green, .cyan, .green])
-            serverRow(lights: [.green, .cyan, .green, .cyan])
-            serverRow(lights: [.cyan, .green, .cyan, .off])
+    private var serverIllustration: some View {
+        VStack(spacing: 3) {
+            ForEach(0..<4, id: \.self) { row in
+                warmServerRow(row: row)
+            }
         }
         .padding(20)
         .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(red: 0.08, green: 0.12, blue: 0.18))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color(red: 0, green: 0.9, blue: 1).opacity(0.15), lineWidth: 1)
-                )
-                .shadow(color: Color(red: 0, green: 0.9, blue: 1).opacity(pulseServer ? 0.15 : 0.05), radius: 20)
+            RoundedRectangle(cornerRadius: Theme.Radius.lg)
+                .fill(Theme.cardBackground)
+                .shadow(color: Theme.woodTone.opacity(0.2), radius: 8)
         )
         .opacity(showContent ? 1 : 0)
         .scaleEffect(showContent ? 1 : 0.9)
     }
 
-    private func serverRow(lights: [ServerLight]) -> some View {
+    private func warmServerRow(row: Int) -> some View {
         HStack(spacing: 6) {
-            // Server face
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color(red: 0.12, green: 0.16, blue: 0.22))
-                .frame(width: 200, height: 22)
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Theme.cardBackground.opacity(0.8))
+                .frame(width: 200, height: 24)
                 .overlay(
-                    HStack(spacing: 4) {
-                        // Lights
-                        ForEach(Array(lights.enumerated()), id: \.offset) { _, light in
+                    HStack(spacing: 5) {
+                        // Warm status lights
+                        ForEach(0..<4, id: \.self) { i in
                             Circle()
-                                .fill(light.color)
+                                .fill(warmLightColor(row: row, index: i))
                                 .frame(width: 5, height: 5)
-                                .shadow(color: light.color.opacity(0.8), radius: 3)
-                                .opacity(light == .off ? 0.2 : (pulseServer ? 1.0 : 0.6))
+                                .opacity(pulseServer ? 1.0 : 0.6)
                         }
-
                         Spacer()
-
                         // Vent lines
-                        ForEach(0..<8, id: \.self) { _ in
+                        ForEach(0..<6, id: \.self) { _ in
                             Rectangle()
-                                .fill(Color.white.opacity(0.06))
-                                .frame(width: 1, height: 12)
+                                .fill(Theme.woodTone.opacity(0.15))
+                                .frame(width: 1, height: 14)
                         }
                     }
                     .padding(.horizontal, 8)
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .strokeBorder(Theme.woodTone.opacity(0.2), lineWidth: 0.5)
+                )
         }
     }
 
-    // MARK: - Level Select
+    private func warmLightColor(row: Int, index: Int) -> Color {
+        let pattern: [[Color]] = [
+            [Theme.positive, Theme.accentGold, Theme.positive, Theme.accent],
+            [Theme.accent, Theme.positive, Theme.accentGold, Theme.positive],
+            [Theme.positive, Theme.accent, Theme.positive, Theme.accentGold],
+            [Theme.accentGold, Theme.positive, Theme.accent, Theme.textSecondary.opacity(0.3)],
+        ]
+        return pattern[row % pattern.count][index % pattern[0].count]
+    }
 
-    private var levelSelect: some View {
-        VStack(spacing: 8) {
-            Text("SELECT LEVEL")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(.gray)
-                .tracking(3)
+    // MARK: - Action Buttons
 
-            VStack(spacing: 8) {
-                ForEach(LevelDefinition.allLevels, id: \.id) { level in
-                    let isLocked = level.id > 1 && (bestStars[level.id - 1] ?? 0) == 0 && level.id > 1
-                    levelButton(level: level, locked: isLocked)
-                }
+    private var actionButtons: some View {
+        VStack(spacing: 12) {
+            // Main START button
+            Button {
+                UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
+                gameState.startNewGame()
+            } label: {
+                Text("START")
+                    .font(Theme.headlineFont(size: 20))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+                    .background(
+                        RoundedRectangle(cornerRadius: 20)
+                            .fill(Theme.accent)
+                            .shadow(color: Theme.accent.opacity(0.4), radius: 10)
+                    )
             }
-        }
-        .opacity(showContent ? 1 : 0)
-        .offset(y: showContent ? 0 : 20)
-    }
+            .scaleEffect(buttonBounce ? 1 : 0.8)
+            .padding(.horizontal, 50)
 
-    private func levelButton(level: LevelDefinition, locked: Bool) -> some View {
-        Button {
-            guard !locked else { return }
-            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-            gameState.resetForLevel(level)
-        } label: {
-            HStack(spacing: 12) {
-                // Level number
-                Text("\(level.id)")
-                    .font(.system(size: 20, weight: .black, design: .monospaced))
-                    .foregroundStyle(locked ? .gray.opacity(0.3) : Color(red: 0, green: 0.9, blue: 1))
-                    .frame(width: 36)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(level.name)
-                        .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundStyle(locked ? .gray.opacity(0.4) : .white)
-
-                    Text(level.subtitle)
-                        .font(.system(size: 10, weight: .regular, design: .monospaced))
-                        .foregroundStyle(.gray.opacity(0.6))
-                }
-
-                Spacer()
-
-                if locked {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.gray.opacity(0.3))
-                } else {
-                    // Star rating
-                    HStack(spacing: 3) {
-                        ForEach(0..<3, id: \.self) { i in
-                            Image(systemName: i < (bestStars[level.id] ?? 0) ? "star.fill" : "star")
-                                .font(.system(size: 12))
-                                .foregroundStyle(
-                                    i < (bestStars[level.id] ?? 0)
-                                        ? Color(red: 1, green: 0.8, blue: 0)
-                                        : .white.opacity(0.15)
-                                )
-                        }
+            // Continue button (if save exists)
+            if gameState.hasSaveData {
+                Button {
+                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+                    gameState.loadGame()
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 14))
+                        Text("Continue")
+                            .font(Theme.headlineFont(size: 16))
                     }
+                    .foregroundStyle(Theme.textPrimary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(Theme.textPrimary.opacity(0.3), lineWidth: 1.5)
+                    )
                 }
+                .padding(.horizontal, 50)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(locked ? Color.white.opacity(0.02) : Color.white.opacity(0.05))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .strokeBorder(
-                                locked
-                                    ? Color.white.opacity(0.03)
-                                    : Color(red: 0, green: 0.9, blue: 1).opacity(0.15),
-                                lineWidth: 1
-                            )
-                    )
-            )
         }
-        .disabled(locked)
-        .padding(.horizontal, 24)
-    }
-
-    // MARK: - Start Button
-
-    private var startButton: some View {
-        Button {
-            UIImpactFeedbackGenerator(style: .heavy).impactOccurred()
-            gameState.resetForLevel(LevelDefinition.level1)
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "play.fill")
-                    .font(.system(size: 16))
-                Text("QUICK START")
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-            }
-            .foregroundStyle(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 14)
-                    .fill(
-                        LinearGradient(
-                            colors: [Color(red: 0, green: 0.9, blue: 1), Color(red: 0, green: 0.6, blue: 1)],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-                    .shadow(color: Color(red: 0, green: 0.9, blue: 1).opacity(0.4), radius: 12)
-            )
-        }
-        .padding(.horizontal, 40)
         .opacity(showContent ? 1 : 0)
     }
 
-    // MARK: - Grid Background
+    // MARK: - Stats Section
 
-    private var gridBackground: some View {
+    private var statsSection: some View {
+        HStack(spacing: 24) {
+            statBadge(
+                value: "$\(Int(gameState.totalMoneyEarned))",
+                label: "Earned",
+                color: Theme.accentGold
+            )
+            statBadge(
+                value: "\(gameState.totalIncidentsResolved)",
+                label: "Fixed",
+                color: Theme.accent
+            )
+            statBadge(
+                value: formatPlayTime(gameState.playTime),
+                label: "Played",
+                color: Theme.textSecondary
+            )
+        }
+        .opacity(showContent ? 1 : 0)
+    }
+
+    private func statBadge(value: String, label: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(Theme.headlineFont(size: 16))
+                .foregroundStyle(color)
+            Text(label)
+                .font(Theme.bodyFont(size: 11))
+                .foregroundStyle(Theme.textSecondary)
+        }
+    }
+
+    private func formatPlayTime(_ seconds: TimeInterval) -> String {
+        let hours = Int(seconds) / 3600
+        let mins = (Int(seconds) % 3600) / 60
+        if hours > 0 { return "\(hours)h \(mins)m" }
+        return "\(mins)m"
+    }
+
+    // MARK: - Dot Pattern Background
+
+    private var dotPattern: some View {
         Canvas { context, size in
-            let spacing: CGFloat = 30
-            for x in stride(from: 0, to: size.width, by: spacing) {
-                var path = Path()
-                path.move(to: CGPoint(x: x, y: 0))
-                path.addLine(to: CGPoint(x: x, y: size.height))
-                context.stroke(path, with: .color(.white.opacity(0.02)), lineWidth: 0.5)
-            }
-            for y in stride(from: 0, to: size.height, by: spacing) {
-                var path = Path()
-                path.move(to: CGPoint(x: 0, y: y))
-                path.addLine(to: CGPoint(x: size.width, y: y))
-                context.stroke(path, with: .color(.white.opacity(0.02)), lineWidth: 0.5)
+            let spacing: CGFloat = 24
+            let dotRadius: CGFloat = 1.5
+            for x in stride(from: spacing, to: size.width, by: spacing) {
+                for y in stride(from: spacing, to: size.height, by: spacing) {
+                    let rect = CGRect(
+                        x: x - dotRadius,
+                        y: y - dotRadius,
+                        width: dotRadius * 2,
+                        height: dotRadius * 2
+                    )
+                    context.fill(Path(ellipseIn: rect), with: .color(Theme.woodTone.opacity(0.08)))
+                }
             }
         }
         .ignoresSafeArea()
-    }
-}
-
-// MARK: - Server Light
-
-private enum ServerLight: Equatable {
-    case green, cyan, off
-
-    var color: Color {
-        switch self {
-        case .green: return Color(red: 0, green: 0.9, blue: 0.4)
-        case .cyan: return Color(red: 0, green: 0.9, blue: 1)
-        case .off: return .gray
-        }
     }
 }

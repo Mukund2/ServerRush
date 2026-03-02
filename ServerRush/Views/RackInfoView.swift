@@ -8,46 +8,36 @@ struct RackInfoView: View {
 
     private var spec: EquipmentSpec { equipment.type.spec }
 
+    // Equipment mood emoji
+    private var moodEmoji: String {
+        if equipment.status == .offline { return "\u{1F4A4}" }           // sleeping
+        if equipment.health < 25 || equipment.temperature > 70 { return "\u{1F630}" }  // overheating/critical
+        if equipment.health < 50 { return "\u{1F613}" }                  // stressed
+        return "\u{1F60A}"                                                // happy
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Drag handle
             Capsule()
-                .fill(Color.white.opacity(0.3))
-                .frame(width: 36, height: 4)
+                .fill(Theme.woodTone.opacity(0.5))
+                .frame(width: 36, height: 5)
                 .padding(.top, 10)
                 .padding(.bottom, 12)
 
-            VStack(spacing: 16) {
-                // Header
+            VStack(spacing: 14) {
                 header
-
-                // Stats
-                statsGrid
-
-                // Health & Temperature bars
+                statsSection
                 healthAndTemp
-
-                // Action buttons
                 actionButtons
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
         .background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color(red: 0.08, green: 0.12, blue: 0.18))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .strokeBorder(
-                            LinearGradient(
-                                colors: [Color(red: 0, green: 0.9, blue: 1).opacity(0.3), Color.clear],
-                                startPoint: .top,
-                                endPoint: .bottom
-                            ),
-                            lineWidth: 1
-                        )
-                )
-                .shadow(color: Color.black.opacity(0.6), radius: 20, y: -10)
+            RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
+                .fill(Theme.background)
+                .shadow(color: Theme.woodTone.opacity(0.25), radius: 12, y: -6)
         )
         .padding(.horizontal, 12)
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -57,32 +47,34 @@ struct RackInfoView: View {
 
     private var header: some View {
         HStack(spacing: 12) {
-            // Icon
+            // Mood emoji + icon
             ZStack {
                 Circle()
-                    .fill(Color(red: 0, green: 0.9, blue: 1).opacity(0.15))
+                    .fill(Theme.cardBackground)
                     .frame(width: 48, height: 48)
 
-                Image(systemName: equipment.type.icon)
-                    .font(.system(size: 22))
-                    .foregroundStyle(Color(red: 0, green: 0.9, blue: 1))
-                    .shadow(color: Color(red: 0, green: 0.9, blue: 1).opacity(0.5), radius: 4)
+                VStack(spacing: 2) {
+                    Text(moodEmoji)
+                        .font(.system(size: 18))
+                    Image(systemName: equipment.type.icon)
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.textSecondary)
+                }
             }
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(equipment.type.displayName)
-                    .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white)
+                    .font(Theme.headlineFont(size: 18))
+                    .foregroundStyle(Theme.textPrimary)
 
                 HStack(spacing: 8) {
                     Text("Tier \(equipment.type.tier)")
-                        .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(Color(red: 0, green: 0.9, blue: 1))
+                        .font(Theme.bodyFont(size: 11))
+                        .foregroundStyle(Theme.accent)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(
-                            Capsule()
-                                .fill(Color(red: 0, green: 0.9, blue: 1).opacity(0.15))
+                            Capsule().fill(Theme.accent.opacity(0.12))
                         )
 
                     statusBadge
@@ -91,16 +83,16 @@ struct RackInfoView: View {
 
             Spacer()
 
-            // Close button
+            // Close
             Button {
                 UIImpactFeedbackGenerator(style: .light).impactOccurred()
                 gameState.selectedTile = nil
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundStyle(.gray)
-                    .frame(width: 32, height: 32)
-                    .background(Circle().fill(Color.white.opacity(0.08)))
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundStyle(Theme.textSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(Circle().fill(Theme.cardBackground))
             }
         }
     }
@@ -109,66 +101,78 @@ struct RackInfoView: View {
     private var statusBadge: some View {
         let (text, color): (String, Color) = {
             switch equipment.status {
-            case .normal: return ("ONLINE", Color(red: 0, green: 0.9, blue: 0.4))
-            case .warning: return ("WARNING", Color(red: 1, green: 0.7, blue: 0))
-            case .critical: return ("CRITICAL", Color(red: 1, green: 0.09, blue: 0.27))
-            case .offline: return ("OFFLINE", .gray)
+            case .normal: return ("Online", Theme.positive)
+            case .warning: return ("Warning", Theme.warning)
+            case .critical: return ("Critical", Theme.critical)
+            case .offline: return ("Offline", Theme.textSecondary)
             }
         }()
 
         Text(text)
-            .font(.system(size: 9, weight: .bold, design: .monospaced))
+            .font(Theme.bodyFont(size: 10))
             .foregroundStyle(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Capsule().fill(color.opacity(0.15)))
+            .background(Capsule().fill(color.opacity(0.12)))
     }
 
-    // MARK: - Stats Grid
+    // MARK: - Stats
 
-    private var statsGrid: some View {
-        HStack(spacing: 12) {
+    private var statsSection: some View {
+        HStack(spacing: 10) {
             if spec.revenuePerSec > 0 {
-                statItem(icon: "dollarsign.circle", label: "Revenue", value: "+$\(Int(spec.revenuePerSec))/s", color: Color(red: 0, green: 0.9, blue: 0.4))
-            }
-            if spec.powerDraw > 0 {
-                statItem(icon: "bolt.fill", label: "Power", value: "\(Int(spec.powerDraw))W", color: Color(red: 1, green: 0.7, blue: 0))
+                friendlyStatCard(
+                    icon: "dollarsign.circle",
+                    text: "Making $\(Int(spec.revenuePerSec)) per second",
+                    color: Theme.positive
+                )
             }
             if spec.powerProvide > 0 {
-                statItem(icon: "bolt.fill", label: "Power", value: "+\(Int(spec.powerProvide))W", color: Color(red: 0, green: 0.9, blue: 0.4))
+                friendlyStatCard(
+                    icon: "bolt.fill",
+                    text: "Provides \(Int(spec.powerProvide))W",
+                    color: Theme.accentGold
+                )
+            }
+            if spec.powerDraw > 0 {
+                friendlyStatCard(
+                    icon: "bolt.fill",
+                    text: "Uses \(Int(spec.powerDraw))W",
+                    color: Theme.warning
+                )
             }
             if spec.coolingProvide > 0 {
-                statItem(icon: "snowflake", label: "Cooling", value: "+\(Int(spec.coolingProvide))", color: Color(red: 0.3, green: 0.6, blue: 1))
-            }
-            if spec.heatGenerate > 0 {
-                statItem(icon: "flame", label: "Heat", value: "+\(Int(spec.heatGenerate))", color: Color(red: 1, green: 0.4, blue: 0.2))
+                friendlyStatCard(
+                    icon: "snowflake",
+                    text: "Cools \(Int(spec.coolingProvide)) units",
+                    color: Color(red: 0.55, green: 0.72, blue: 0.88)
+                )
             }
             if spec.bandwidthProvide > 0 {
-                statItem(icon: "network", label: "BW", value: "+\(Int(spec.bandwidthProvide))", color: Color(red: 0.6, green: 0.4, blue: 1))
-            }
-            if spec.bandwidthUse > 0 {
-                statItem(icon: "network", label: "BW Use", value: "\(Int(spec.bandwidthUse))", color: Color(red: 1, green: 0.7, blue: 0))
+                friendlyStatCard(
+                    icon: "network",
+                    text: "\(Int(spec.bandwidthProvide)) Mbps",
+                    color: Color(red: 0.68, green: 0.58, blue: 0.82)
+                )
             }
         }
     }
 
-    private func statItem(icon: String, label: String, value: String, color: Color) -> some View {
+    private func friendlyStatCard(icon: String, text: String, color: Color) -> some View {
         VStack(spacing: 4) {
             Image(systemName: icon)
                 .font(.system(size: 14))
                 .foregroundStyle(color)
-            Text(value)
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white)
-            Text(label)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .foregroundStyle(.gray)
+            Text(text)
+                .font(Theme.bodyFont(size: 10))
+                .foregroundStyle(Theme.textPrimary)
+                .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 10)
-                .fill(color.opacity(0.06))
+            RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                .fill(color.opacity(0.08))
         )
     }
 
@@ -180,11 +184,11 @@ struct RackInfoView: View {
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text("Health")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.gray)
+                        .font(Theme.bodyFont(size: 11))
+                        .foregroundStyle(Theme.textSecondary)
                     Spacer()
                     Text("\(Int(equipment.health))%")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .font(Theme.headlineFont(size: 11))
                         .foregroundStyle(healthColor)
                         .contentTransition(.numericText())
                 }
@@ -192,31 +196,24 @@ struct RackInfoView: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white.opacity(0.08))
+                            .fill(Theme.cardBackground)
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(
-                                LinearGradient(
-                                    colors: [healthColor.opacity(0.7), healthColor],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
-                                )
-                            )
+                            .fill(healthColor)
                             .frame(width: geo.size.width * equipment.health / 100)
-                            .shadow(color: healthColor.opacity(0.4), radius: 3)
                     }
                 }
                 .frame(height: 8)
             }
 
-            // Temperature
+            // Temperature bar
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
                     Text("Temperature")
-                        .font(.system(size: 11, weight: .medium, design: .monospaced))
-                        .foregroundStyle(.gray)
+                        .font(Theme.bodyFont(size: 11))
+                        .foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Text("\(Int(equipment.temperature)) C")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    Text("\(Int(equipment.temperature))\u{00B0}C")
+                        .font(Theme.headlineFont(size: 11))
                         .foregroundStyle(tempColor)
                         .contentTransition(.numericText())
                 }
@@ -224,17 +221,16 @@ struct RackInfoView: View {
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
                         RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white.opacity(0.08))
+                            .fill(Theme.cardBackground)
                         RoundedRectangle(cornerRadius: 4)
                             .fill(
                                 LinearGradient(
-                                    colors: [tempColor.opacity(0.7), tempColor],
+                                    colors: [Color(red: 0.55, green: 0.72, blue: 0.88), Theme.accent, Theme.critical],
                                     startPoint: .leading,
                                     endPoint: .trailing
                                 )
                             )
                             .frame(width: geo.size.width * min(equipment.temperature / 100, 1.0))
-                            .shadow(color: tempColor.opacity(0.4), radius: 3)
                     }
                 }
                 .frame(height: 8)
@@ -243,15 +239,15 @@ struct RackInfoView: View {
     }
 
     private var healthColor: Color {
-        if equipment.health < 25 { return Color(red: 1, green: 0.09, blue: 0.27) }
-        if equipment.health < 50 { return Color(red: 1, green: 0.7, blue: 0) }
-        return Color(red: 0, green: 0.9, blue: 0.4)
+        if equipment.health < 25 { return Theme.critical }
+        if equipment.health < 50 { return Theme.warning }
+        return Theme.positive
     }
 
     private var tempColor: Color {
-        if equipment.temperature > 80 { return Color(red: 1, green: 0.09, blue: 0.27) }
-        if equipment.temperature > 60 { return Color(red: 1, green: 0.7, blue: 0) }
-        return Color(red: 0.3, green: 0.6, blue: 1)
+        if equipment.temperature > 80 { return Theme.critical }
+        if equipment.temperature > 60 { return Theme.warning }
+        return Color(red: 0.55, green: 0.72, blue: 0.88)
     }
 
     // MARK: - Action Buttons
@@ -269,32 +265,22 @@ struct RackInfoView: View {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 14))
                         VStack(alignment: .leading, spacing: 1) {
-                            Text("UPGRADE")
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                            Text("$\(Int(upgrade.cost)) -> \(upgrade.displayName)")
-                                .font(.system(size: 8, weight: .medium, design: .monospaced))
-                                .opacity(0.7)
+                            Text("Upgrade")
+                                .font(Theme.headlineFont(size: 12))
+                            HStack(spacing: 2) {
+                                Text("\u{1FA99}")
+                                    .font(.system(size: 8))
+                                Text("$\(Int(upgrade.cost))")
+                                    .font(Theme.bodyFont(size: 9))
+                            }
                         }
                     }
-                    .foregroundStyle(canUpgrade ? .white : .gray)
+                    .foregroundStyle(canUpgrade ? .white : Theme.textSecondary.opacity(0.5))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
                     .background(
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(
-                                canUpgrade
-                                    ? Color(red: 0, green: 0.9, blue: 1).opacity(0.2)
-                                    : Color.white.opacity(0.03)
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .strokeBorder(
-                                        canUpgrade
-                                            ? Color(red: 0, green: 0.9, blue: 1).opacity(0.4)
-                                            : Color.white.opacity(0.05),
-                                        lineWidth: 1
-                                    )
-                            )
+                        RoundedRectangle(cornerRadius: Theme.Radius.md)
+                            .fill(canUpgrade ? Theme.accent : Theme.cardBackground)
                     )
                 }
                 .disabled(!canUpgrade)
@@ -311,30 +297,21 @@ struct RackInfoView: View {
                 }
             } label: {
                 HStack(spacing: 6) {
-                    Image(systemName: showConfirmSell ? "exclamationmark.triangle.fill" : "trash.fill")
+                    Image(systemName: showConfirmSell ? "exclamationmark.triangle.fill" : "arrow.down.to.line")
                         .font(.system(size: 14))
                     VStack(alignment: .leading, spacing: 1) {
-                        Text(showConfirmSell ? "CONFIRM" : "SELL")
-                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        Text(showConfirmSell ? "Confirm?" : "Sell")
+                            .font(Theme.headlineFont(size: 12))
                         Text("+$\(Int(equipment.type.cost * 0.5))")
-                            .font(.system(size: 8, weight: .medium, design: .monospaced))
-                            .opacity(0.7)
+                            .font(Theme.bodyFont(size: 9))
                     }
                 }
-                .foregroundStyle(showConfirmSell ? .white : Color(red: 1, green: 0.09, blue: 0.27))
+                .foregroundStyle(Theme.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
                 .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(
-                            showConfirmSell
-                                ? Color(red: 1, green: 0.09, blue: 0.27).opacity(0.3)
-                                : Color(red: 1, green: 0.09, blue: 0.27).opacity(0.1)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 10)
-                                .strokeBorder(Color(red: 1, green: 0.09, blue: 0.27).opacity(0.3), lineWidth: 1)
-                        )
+                    RoundedRectangle(cornerRadius: Theme.Radius.md)
+                        .fill(showConfirmSell ? Theme.woodTone.opacity(0.3) : Theme.cardBackground)
                 )
             }
             .animation(.spring(response: 0.3), value: showConfirmSell)

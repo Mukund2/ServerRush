@@ -7,8 +7,7 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Background
-            Color(red: 0.05, green: 0.1, blue: 0.15)
+            Theme.background
                 .ignoresSafeArea()
 
             switch gameState.phase {
@@ -20,35 +19,28 @@ struct ContentView: View {
                 gameView
                     .transition(.opacity)
 
-            case .levelComplete(let stars):
-                LevelCompleteView(
-                    gameState: gameState,
-                    stars: stars,
-                    levelName: LevelDefinition.forLevel(gameState.currentLevel).name,
-                    elapsedTime: gameState.levelElapsedTime
-                )
-                .transition(.scale.combined(with: .opacity))
+            case .milestone(let type):
+                MilestoneView(gameState: gameState, milestoneType: type)
+                    .transition(.scale.combined(with: .opacity))
 
             case .gameOver:
                 gameOverView
                     .transition(.opacity)
             }
         }
+        .preferredColorScheme(.light)
         .animation(.easeInOut(duration: 0.3), value: gameState.phase)
     }
 
     private var gameView: some View {
         ZStack {
-            // SpriteKit game world
             SpriteView(scene: makeScene(), preferredFramesPerSecond: 60)
                 .ignoresSafeArea()
 
-            // SwiftUI HUD overlay
             VStack(spacing: 0) {
                 HUDView(gameState: gameState)
                 Spacer()
 
-                // Incident alerts
                 if !gameState.activeIncidents.isEmpty {
                     IncidentAlertView(gameState: gameState)
                         .transition(.move(edge: .trailing))
@@ -56,14 +48,12 @@ struct ContentView: View {
 
                 Spacer()
 
-                // AI Guide chat bubble
                 if gameState.guideVisible, let message = gameState.guideMessage {
                     AIGuideView(message: message, gameState: gameState)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
                         .padding(.bottom, 8)
                 }
 
-                // Build menu
                 BuildMenuView(gameState: gameState)
             }
         }
@@ -71,35 +61,44 @@ struct ContentView: View {
 
     private var gameOverView: some View {
         VStack(spacing: 24) {
-            Text("SYSTEM FAILURE")
-                .font(.system(size: 36, weight: .black, design: .monospaced))
-                .foregroundStyle(.red)
+            Text("Oh no!")
+                .font(Theme.headlineFont(size: 36))
+                .foregroundStyle(Theme.critical)
 
-            Text("Your data center couldn't maintain operations")
-                .font(.system(size: 16, design: .monospaced))
-                .foregroundStyle(.gray)
+            Text("Your data center couldn't keep up. Don't worry, every great builder has setbacks!")
+                .font(Theme.bodyFont(size: 16))
+                .foregroundStyle(Theme.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
 
             Button {
-                let level = LevelDefinition.forLevel(gameState.currentLevel)
-                gameState.resetForLevel(level)
+                gameState.phase = .playing
+                gameState.money = 500
+                gameState.activeIncidents.removeAll()
+                gameState.failedIncidentCount = 0
             } label: {
-                Text("REBOOT")
-                    .font(.system(size: 18, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 32)
-                    .padding(.vertical, 12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(.red.opacity(0.8))
-                    )
+                HStack(spacing: 8) {
+                    Image(systemName: "arrow.counterclockwise")
+                        .font(.system(size: 16, weight: .bold))
+                    Text("Try Again")
+                        .font(Theme.headlineFont(size: 18))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 20)
+                        .fill(Theme.accent)
+                        .shadow(color: Theme.accent.opacity(0.4), radius: 8)
+                )
             }
 
             Button {
                 gameState.phase = .mainMenu
             } label: {
                 Text("Main Menu")
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(.gray)
+                    .font(Theme.bodyFont(size: 14))
+                    .foregroundStyle(Theme.textSecondary)
             }
         }
     }
