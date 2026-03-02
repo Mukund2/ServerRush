@@ -44,17 +44,11 @@ final class GameScene: SKScene {
 
     // Ambient: Steam wisps
     private var steamTimer: TimeInterval = 0
-    private let steamInterval: TimeInterval = 1.5
+    private let steamInterval: TimeInterval = 1.0
 
     // Ambient: Dust motes
     private let dustMoteLayer = SKNode()
     private var dustMotes: [SKNode] = []
-
-    // Ambient: Chimney smoke
-    private var chimneySprite: SKSpriteNode?
-    private var chimneyScreenPos: CGPoint = .zero
-    private var chimneyTimer: TimeInterval = 0
-    private let chimneyInterval: TimeInterval = 0.8
 
     // Ambient: Equipment breathing phase tracking
     private var breathingPhases: [GridPosition: TimeInterval] = [:]
@@ -144,9 +138,6 @@ final class GameScene: SKScene {
         // Ambient: dust motes
         spawnDustMotes()
 
-        // Ambient: chimney
-        spawnChimney()
-
         // Ambient: fireflies
         spawnFireflies()
     }
@@ -191,6 +182,7 @@ final class GameScene: SKScene {
     /// Rebuild the floor grid after an expansion.
     func rebuildFloorGrid() {
         buildFloorGrid()
+        buildBackgroundScenery()
         addFloorDecorations()
         cameraController.configure(
             gridWidth: gameState.gridWidth,
@@ -201,33 +193,44 @@ final class GameScene: SKScene {
 
     // MARK: - Background Scenery
 
-    /// Adds trees, bushes, flowers, and rocks around the grid perimeter to fill the empty background.
+    /// Adds trees, bushes, flowers, and rocks on ALL non-unlocked tiles inside the grid
+    /// plus a surrounding ring outside for depth. Scenery clears when expansions are purchased.
     private func buildBackgroundScenery() {
         sceneryLayer.removeAllChildren()
 
         let gridW = gameState.gridWidth
         let gridH = gameState.gridHeight
 
-        // Place scenery in a ring outside the grid (cols/rows -3..-1 and gridW..gridW+2, same for rows)
-        // Also scatter some further out for depth
         var sceneryPositions: [(col: Int, row: Int)] = []
 
-        // Inner ring: 1-2 tiles outside grid
-        for col in -2...(gridW + 1) {
-            for row in -2...(gridH + 1) {
-                // Skip positions inside the grid
-                if col >= 0 && col < gridW && row >= 0 && row < gridH { continue }
-                // ~40% density
-                if Int.random(in: 0..<5) < 2 {
+        // Inside the grid: fill non-unlocked, non-expansion-border tiles (~55% density)
+        for col in 0..<gridW {
+            for row in 0..<gridH {
+                if gameState.isUnlockedTile(col: col, row: row) { continue }
+                if gameState.isExpansionBorderTile(col: col, row: row) { continue }
+                // ~55% density inside grid
+                if Int.random(in: 0..<20) < 11 {
                     sceneryPositions.append((col, row))
                 }
             }
         }
 
-        // Outer ring: 3-5 tiles outside for depth
-        for col in stride(from: -5, to: gridW + 5, by: 2) {
-            for row in stride(from: -5, to: gridH + 5, by: 2) {
-                if col >= -2 && col <= gridW + 1 && row >= -2 && row <= gridH + 1 { continue }
+        // Surrounding ring: -3 to gridW+2 (skip anything already covered above)
+        for col in -3...(gridW + 2) {
+            for row in -3...(gridH + 2) {
+                // Skip positions inside the grid (handled above)
+                if col >= 0 && col < gridW && row >= 0 && row < gridH { continue }
+                // ~35% density outside
+                if Int.random(in: 0..<20) < 7 {
+                    sceneryPositions.append((col, row))
+                }
+            }
+        }
+
+        // Outer scatter: -6 to gridW+5 for far depth
+        for col in stride(from: -6, to: gridW + 6, by: 2) {
+            for row in stride(from: -6, to: gridH + 6, by: 2) {
+                if col >= -3 && col <= gridW + 2 && row >= -3 && row <= gridH + 2 { continue }
                 if Int.random(in: 0..<3) == 0 {
                     sceneryPositions.append((col, row))
                 }
@@ -265,11 +268,19 @@ final class GameScene: SKScene {
             gc.fill(CGRect(x: treeW / 2 - 3, y: treeH - 14, width: 6, height: 14))
 
             // Canopy layers (overlapping circles for rounded look)
-            let greens: [UIColor] = [
-                UIColor(hue: 0.30, saturation: 0.40, brightness: 0.65, alpha: 1),
-                UIColor(hue: 0.28, saturation: 0.45, brightness: 0.58, alpha: 1),
-                UIColor(hue: 0.32, saturation: 0.35, brightness: 0.72, alpha: 1),
+            // Fixed warm palette: sage, olive, forest
+            let palettes: [[UIColor]] = [
+                [UIColor(red: 0.55, green: 0.68, blue: 0.52, alpha: 1),   // sage light
+                 UIColor(red: 0.45, green: 0.58, blue: 0.42, alpha: 1),   // sage mid
+                 UIColor(red: 0.62, green: 0.74, blue: 0.58, alpha: 1)],  // sage bright
+                [UIColor(red: 0.50, green: 0.56, blue: 0.36, alpha: 1),   // olive light
+                 UIColor(red: 0.42, green: 0.48, blue: 0.30, alpha: 1),   // olive mid
+                 UIColor(red: 0.56, green: 0.62, blue: 0.42, alpha: 1)],  // olive bright
+                [UIColor(red: 0.35, green: 0.52, blue: 0.38, alpha: 1),   // forest light
+                 UIColor(red: 0.28, green: 0.44, blue: 0.32, alpha: 1),   // forest mid
+                 UIColor(red: 0.42, green: 0.58, blue: 0.44, alpha: 1)],  // forest bright
             ]
+            let greens = palettes[Int.random(in: 0..<palettes.count)]
             gc.setFillColor(greens[1].cgColor)
             gc.fillEllipse(in: CGRect(x: 1, y: 2, width: treeW - 2, height: 24))
             gc.setFillColor(greens[0].cgColor)
@@ -304,18 +315,20 @@ final class GameScene: SKScene {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: bushW, height: bushH))
         let image = renderer.image { ctx in
             let gc = ctx.cgContext
-            let hue = CGFloat.random(in: 0.27...0.36)
+            // Fixed warm bush hues
+            let bushHues: [CGFloat] = [0.30, 0.33, 0.28]
+            let hue = bushHues[Int.random(in: 0..<bushHues.count)]
             // Main bush body
             gc.setFillColor(UIColor(hue: hue, saturation: 0.40, brightness: 0.60, alpha: 1).cgColor)
             gc.fillEllipse(in: CGRect(x: 0, y: 2, width: bushW, height: bushH - 2))
             // Lighter highlight
             gc.setFillColor(UIColor(hue: hue, saturation: 0.30, brightness: 0.72, alpha: 0.6).cgColor)
             gc.fillEllipse(in: CGRect(x: 3, y: 1, width: bushW - 6, height: bushH - 6))
-            // Optional berry dots
+            // Optional berry dots (red or warm orange — no purple)
             if Bool.random() {
                 let berryColor = Bool.random()
                     ? UIColor(red: 0.85, green: 0.35, blue: 0.35, alpha: 0.8) // red berries
-                    : UIColor(red: 0.75, green: 0.60, blue: 0.85, alpha: 0.8) // purple berries
+                    : UIColor(red: 0.90, green: 0.60, blue: 0.30, alpha: 0.8) // warm orange berries
                 gc.setFillColor(berryColor.cgColor)
                 for _ in 0..<3 {
                     let bx = CGFloat.random(in: 4...(bushW - 4))
@@ -379,11 +392,17 @@ final class GameScene: SKScene {
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: rockW, height: rockH))
         let image = renderer.image { ctx in
             let gc = ctx.cgContext
-            let gray = CGFloat.random(in: 0.55...0.70)
-            gc.setFillColor(UIColor(red: gray, green: gray - 0.03, blue: gray - 0.06, alpha: 1).cgColor)
+            // Warm sandstone/gray palette
+            let rockColors: [(r: CGFloat, g: CGFloat, b: CGFloat)] = [
+                (0.68, 0.62, 0.54),  // warm sandstone
+                (0.62, 0.58, 0.52),  // warm gray
+                (0.72, 0.66, 0.58),  // light sandstone
+            ]
+            let rc = rockColors[Int.random(in: 0..<rockColors.count)]
+            gc.setFillColor(UIColor(red: rc.r, green: rc.g, blue: rc.b, alpha: 1).cgColor)
             gc.fillEllipse(in: CGRect(x: 0, y: 0, width: rockW, height: rockH))
             // Highlight
-            gc.setFillColor(UIColor(red: gray + 0.1, green: gray + 0.08, blue: gray + 0.05, alpha: 0.5).cgColor)
+            gc.setFillColor(UIColor(red: rc.r + 0.1, green: rc.g + 0.08, blue: rc.b + 0.05, alpha: 0.5).cgColor)
             gc.fillEllipse(in: CGRect(x: 2, y: 1, width: rockW * 0.5, height: rockH * 0.4))
         }
 
@@ -781,7 +800,6 @@ final class GameScene: SKScene {
         // Ambient effects
         updateSteamWisps(dt: dt)
         updateDustMotes(dt: dt)
-        updateChimneySmoke(dt: dt)
 
         // Guide wander
         updateGuideWander(dt: dt)
@@ -823,7 +841,7 @@ final class GameScene: SKScene {
                     }
                     let delay = SKAction.wait(forDuration: breathingPhases[pos] ?? 0)
                     let breathe = SKAction.repeatForever(SKAction.sequence([
-                        SKAction.scale(to: 1.01, duration: 1.5),
+                        SKAction.scale(to: 1.02, duration: 1.5),
                         SKAction.scale(to: 1.0, duration: 1.5)
                     ]))
                     breathe.timingMode = .easeInEaseOut
@@ -936,11 +954,11 @@ final class GameScene: SKScene {
         let wispCount = temp > 60 ? Int.random(in: 3...4) : Int.random(in: 2...3)
 
         for _ in 0..<wispCount {
-            let radius = temp > 60 ? CGFloat.random(in: 2.5...3.5) : CGFloat.random(in: 2...3)
+            let radius = temp > 60 ? CGFloat.random(in: 4...5) : CGFloat.random(in: 3...5)
             let wisp = SKShapeNode(circleOfRadius: radius)
             wisp.fillColor = UIColor(red: 0.95, green: 0.92, blue: 0.88, alpha: 1)
             wisp.strokeColor = .clear
-            wisp.alpha = CGFloat.random(in: 0.2...0.35)
+            wisp.alpha = CGFloat.random(in: 0.35...0.55)
             wisp.position = CGPoint(
                 x: screenPos.x + CGFloat.random(in: -8...8),
                 y: screenPos.y + 15
@@ -948,7 +966,7 @@ final class GameScene: SKScene {
             wisp.zPosition = IsometricConstants.objectLayer + 50
             effectLayer.addChild(wisp)
 
-            let floatHeight = CGFloat.random(in: 15...25)
+            let floatHeight = CGFloat.random(in: 20...35)
             let drift = CGFloat.random(in: -6...6)
             wisp.run(SKAction.sequence([
                 SKAction.group([
@@ -965,12 +983,12 @@ final class GameScene: SKScene {
 
     private func spawnDustMotes() {
         let center = IsometricUtils.gridToScreen(col: 7, row: 7)
-        for _ in 0..<12 {
-            let mote = SKShapeNode(circleOfRadius: CGFloat.random(in: 1...2))
+        for _ in 0..<16 {
+            let mote = SKShapeNode(circleOfRadius: CGFloat.random(in: 1.5...3))
             // Warm tan/gold color
             mote.fillColor = UIColor(red: 0.85, green: 0.75, blue: 0.55, alpha: 1)
             mote.strokeColor = .clear
-            mote.alpha = CGFloat.random(in: 0.15...0.25)
+            mote.alpha = CGFloat.random(in: 0.2...0.35)
             mote.position = CGPoint(
                 x: center.x + CGFloat.random(in: -200...200),
                 y: center.y + CGFloat.random(in: -150...150)
@@ -1061,87 +1079,28 @@ final class GameScene: SKScene {
         }
     }
 
-    // MARK: - Ambient: Chimney Smoke
-
-    private func spawnChimney() {
-        // Place chimney at tile (5, 5) if no equipment there (corner of starting area)
-        let chimneyCol = 5
-        let chimneyRow = 5
-        let pos = GridPosition(col: chimneyCol, row: chimneyRow)
-
-        let screenPos = IsometricUtils.gridToScreen(col: chimneyCol, row: chimneyRow)
-        chimneyScreenPos = CGPoint(x: screenPos.x + 12, y: screenPos.y + 10)
-
-        // Only add visible chimney if no equipment at that spot
-        if gameState.placedEquipment[pos] == nil {
-            let chimneyW: CGFloat = 8
-            let chimneyH: CGFloat = 14
-            let renderer = UIGraphicsImageRenderer(size: CGSize(width: chimneyW, height: chimneyH))
-            let chimneyImage = renderer.image { ctx in
-                let gc = ctx.cgContext
-                // Warm brown chimney body
-                gc.setFillColor(UIColor(red: 0.55, green: 0.40, blue: 0.28, alpha: 1).cgColor)
-                gc.fill(CGRect(x: 0, y: 2, width: chimneyW, height: chimneyH - 2))
-                // Darker cap
-                gc.setFillColor(UIColor(red: 0.45, green: 0.33, blue: 0.22, alpha: 1).cgColor)
-                gc.fill(CGRect(x: -1, y: 0, width: chimneyW + 2, height: 3))
-            }
-
-            let sprite = SKSpriteNode(texture: SKTexture(image: chimneyImage))
-            sprite.position = chimneyScreenPos
-            sprite.zPosition = IsometricConstants.decorationLayer + 200
-            floorLayer.addChild(sprite)
-            chimneySprite = sprite
-        }
-    }
-
-    private func updateChimneySmoke(dt: TimeInterval) {
-        chimneyTimer += dt
-        guard chimneyTimer >= chimneyInterval else { return }
-        chimneyTimer = 0
-
-        let puff = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...5))
-        puff.fillColor = UIColor(red: 0.75, green: 0.70, blue: 0.65, alpha: 1)
-        puff.strokeColor = .clear
-        puff.alpha = 0.35
-        puff.position = CGPoint(x: chimneyScreenPos.x, y: chimneyScreenPos.y + 8)
-        puff.zPosition = IsometricConstants.decorationLayer + 210
-        effectLayer.addChild(puff)
-
-        let floatHeight = CGFloat.random(in: 40...60)
-        let drift = CGFloat.random(in: -4...4)
-        puff.run(SKAction.sequence([
-            SKAction.group([
-                SKAction.moveBy(x: drift, y: floatHeight, duration: 2.0),
-                SKAction.scale(to: 1.5, duration: 2.0),
-                SKAction.fadeAlpha(to: 0, duration: 2.0)
-            ]),
-            SKAction.removeFromParent()
-        ]))
-    }
-
     // MARK: - Ambient: Fireflies / Sparkles
 
     private func spawnFireflies() {
         let center = IsometricUtils.gridToScreen(col: 7, row: 7)
 
-        for _ in 0..<4 {
-            let firefly = SKShapeNode(circleOfRadius: CGFloat.random(in: 2...3))
+        for _ in 0..<6 {
+            let firefly = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...4))
             firefly.fillColor = Theme.skAccentGold
             firefly.strokeColor = .clear
-            firefly.alpha = 0.3
+            firefly.alpha = 0.4
             firefly.position = CGPoint(
                 x: center.x + CGFloat.random(in: -150...150),
                 y: center.y + CGFloat.random(in: -100...100)
             )
             firefly.zPosition = IsometricConstants.effectLayer + 2
-            firefly.glowWidth = 2
+            firefly.glowWidth = 4
             effectLayer.addChild(firefly)
 
             // Alpha pulse for twinkling
             let pulse = SKAction.repeatForever(SKAction.sequence([
-                SKAction.fadeAlpha(to: CGFloat.random(in: 0.4...0.6), duration: CGFloat.random(in: 0.8...1.5)),
-                SKAction.fadeAlpha(to: 0.3, duration: CGFloat.random(in: 0.8...1.5))
+                SKAction.fadeAlpha(to: CGFloat.random(in: 0.5...0.8), duration: CGFloat.random(in: 0.8...1.5)),
+                SKAction.fadeAlpha(to: 0.4, duration: CGFloat.random(in: 0.8...1.5))
             ]))
             firefly.run(pulse, withKey: "pulse")
 
