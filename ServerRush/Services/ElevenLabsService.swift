@@ -6,7 +6,7 @@ final class ElevenLabsService: NSObject, AVAudioPlayerDelegate {
     static let shared = ElevenLabsService()
 
     // Chris — charming, down-to-earth, warm
-    private let voiceID = "iP95p4xoKVk5"
+    private let voiceID = "iP95p4xoKVk53GoZ742B"
     private let apiURL = "https://api.elevenlabs.io/v1/text-to-speech/"
     private let model = "eleven_turbo_v2_5"
 
