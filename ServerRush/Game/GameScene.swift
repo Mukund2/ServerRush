@@ -41,6 +41,23 @@ final class GameScene: SKScene {
     private var coinTimer: TimeInterval = 0
     private let coinInterval: TimeInterval = 3.0
 
+    // Ambient: Steam wisps
+    private var steamTimer: TimeInterval = 0
+    private let steamInterval: TimeInterval = 1.5
+
+    // Ambient: Dust motes
+    private let dustMoteLayer = SKNode()
+    private var dustMotes: [SKNode] = []
+
+    // Ambient: Chimney smoke
+    private var chimneySprite: SKSpriteNode?
+    private var chimneyScreenPos: CGPoint = .zero
+    private var chimneyTimer: TimeInterval = 0
+    private let chimneyInterval: TimeInterval = 0.8
+
+    // Ambient: Equipment breathing phase tracking
+    private var breathingPhases: [GridPosition: TimeInterval] = [:]
+
     // Cached textures
     private var floorTexture: SKTexture!
     private var selectionTexture: SKTexture!
@@ -82,10 +99,12 @@ final class GameScene: SKScene {
 
         // Layer hierarchy
         floorLayer.zPosition = IsometricConstants.floorLayer
+        dustMoteLayer.zPosition = 500
         equipmentLayer.zPosition = IsometricConstants.objectLayer
         effectLayer.zPosition = IsometricConstants.effectLayer
         guideLayer.zPosition = IsometricConstants.effectLayer + 50
         addChild(floorLayer)
+        addChild(dustMoteLayer)
         addChild(equipmentLayer)
         addChild(effectLayer)
         addChild(guideLayer)
@@ -112,6 +131,18 @@ final class GameScene: SKScene {
 
         // Spawn guide character
         spawnGuideCharacter()
+
+        // Ambient: floor decorations (leaves on ~20% of tiles)
+        addFloorDecorations()
+
+        // Ambient: dust motes
+        spawnDustMotes()
+
+        // Ambient: chimney
+        spawnChimney()
+
+        // Ambient: fireflies
+        spawnFireflies()
     }
 
     override func willMove(from view: SKView) {
@@ -154,6 +185,7 @@ final class GameScene: SKScene {
     /// Rebuild the floor grid after an expansion.
     func rebuildFloorGrid() {
         buildFloorGrid()
+        addFloorDecorations()
         cameraController.configure(
             gridWidth: gameState.gridWidth,
             gridHeight: gameState.gridHeight,
@@ -264,6 +296,23 @@ final class GameScene: SKScene {
 
         guideLayer.addChild(sprite)
         guideSprite = sprite
+
+        // Personality animations: periodic head tilt + happy bounce
+        let personalityLoop = SKAction.repeatForever(SKAction.sequence([
+            SKAction.wait(forDuration: 6.0, withRange: 4.0),
+            // Head tilt
+            SKAction.rotate(toAngle: .pi / 36, duration: 0.3),  // +5 degrees
+            SKAction.wait(forDuration: 0.5),
+            SKAction.rotate(toAngle: -.pi / 36, duration: 0.3), // -5 degrees
+            SKAction.wait(forDuration: 0.5),
+            SKAction.rotate(toAngle: 0, duration: 0.2),
+            SKAction.wait(forDuration: 4.0, withRange: 6.0),
+            // Happy squash-stretch bounce
+            SKAction.scaleX(to: 1.1, y: 0.9, duration: 0.1),
+            SKAction.scaleX(to: 0.95, y: 1.05, duration: 0.1),
+            SKAction.scaleX(to: 1.0, y: 1.0, duration: 0.15),
+        ]))
+        sprite.run(personalityLoop, withKey: "personality")
 
         // Show welcome message after a short delay, auto-dismiss after 6 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
@@ -531,6 +580,11 @@ final class GameScene: SKScene {
         // Particles
         updateCoinParticles(dt: dt)
 
+        // Ambient effects
+        updateSteamWisps(dt: dt)
+        updateDustMotes(dt: dt)
+        updateChimneySmoke(dt: dt)
+
         // Guide wander
         updateGuideWander(dt: dt)
 
@@ -561,6 +615,27 @@ final class GameScene: SKScene {
             // Dim offline equipment
             if eq.status == .offline {
                 sprite.alpha = 0.5
+            }
+            // Ambient: subtle breathing for normal-status racks
+            if eq.status == .normal && eq.type.category == .rack {
+                if sprite.action(forKey: "breathing") == nil {
+                    // Stagger phase per rack so they don't pulse in sync
+                    if breathingPhases[pos] == nil {
+                        breathingPhases[pos] = TimeInterval.random(in: 0...2.0)
+                    }
+                    let delay = SKAction.wait(forDuration: breathingPhases[pos] ?? 0)
+                    let breathe = SKAction.repeatForever(SKAction.sequence([
+                        SKAction.scale(to: 1.01, duration: 1.5),
+                        SKAction.scale(to: 1.0, duration: 1.5)
+                    ]))
+                    breathe.timingMode = .easeInEaseOut
+                    sprite.run(SKAction.sequence([delay, breathe]), withKey: "breathing")
+                }
+            } else {
+                if sprite.action(forKey: "breathing") != nil {
+                    sprite.removeAction(forKey: "breathing")
+                    sprite.setScale(1.0)
+                }
             }
         }
 
@@ -643,6 +718,254 @@ final class GameScene: SKScene {
         let screenPos = IsometricUtils.gridToScreen(col: ghostPos.col, row: ghostPos.row)
         let blockHeight = CGFloat(8 + buildType.tier * 8)
         ghostSprite!.position = CGPoint(x: screenPos.x, y: screenPos.y + blockHeight / 2)
+    }
+
+    // MARK: - Ambient: Steam Wisps
+
+    private func updateSteamWisps(dt: TimeInterval) {
+        steamTimer += dt
+        guard steamTimer >= steamInterval else { return }
+        steamTimer = 0
+
+        // Pick a random active (non-offline) rack
+        let activeRacks = gameState.placedEquipment.filter {
+            $0.value.type.category == .rack && $0.value.status != .offline
+        }
+        guard let rack = activeRacks.randomElement() else { return }
+
+        let screenPos = IsometricUtils.gridToScreen(col: rack.key.col, row: rack.key.row)
+        let temp = rack.value.temperature
+        let wispCount = temp > 60 ? Int.random(in: 3...4) : Int.random(in: 2...3)
+
+        for _ in 0..<wispCount {
+            let radius = temp > 60 ? CGFloat.random(in: 2.5...3.5) : CGFloat.random(in: 2...3)
+            let wisp = SKShapeNode(circleOfRadius: radius)
+            wisp.fillColor = UIColor(red: 0.95, green: 0.92, blue: 0.88, alpha: 1)
+            wisp.strokeColor = .clear
+            wisp.alpha = CGFloat.random(in: 0.2...0.35)
+            wisp.position = CGPoint(
+                x: screenPos.x + CGFloat.random(in: -8...8),
+                y: screenPos.y + 15
+            )
+            wisp.zPosition = IsometricConstants.objectLayer + 50
+            effectLayer.addChild(wisp)
+
+            let floatHeight = CGFloat.random(in: 15...25)
+            let drift = CGFloat.random(in: -6...6)
+            wisp.run(SKAction.sequence([
+                SKAction.group([
+                    SKAction.moveBy(x: drift, y: floatHeight, duration: 1.2),
+                    SKAction.fadeAlpha(to: 0, duration: 1.2),
+                    SKAction.scale(to: 0.4, duration: 1.2)
+                ]),
+                SKAction.removeFromParent()
+            ]))
+        }
+    }
+
+    // MARK: - Ambient: Dust Motes
+
+    private func spawnDustMotes() {
+        let center = IsometricUtils.gridToScreen(col: 7, row: 7)
+        for _ in 0..<12 {
+            let mote = SKShapeNode(circleOfRadius: CGFloat.random(in: 1...2))
+            // Warm tan/gold color
+            mote.fillColor = UIColor(red: 0.85, green: 0.75, blue: 0.55, alpha: 1)
+            mote.strokeColor = .clear
+            mote.alpha = CGFloat.random(in: 0.15...0.25)
+            mote.position = CGPoint(
+                x: center.x + CGFloat.random(in: -200...200),
+                y: center.y + CGFloat.random(in: -150...150)
+            )
+            dustMoteLayer.addChild(mote)
+            dustMotes.append(mote)
+
+            // Store initial phase offset in name for sine wobble
+            mote.name = "mote_\(CGFloat.random(in: 0...(2 * .pi)))"
+        }
+    }
+
+    private func updateDustMotes(dt: TimeInterval) {
+        let cameraPos = cameraController.cameraNode.position
+        let viewHalf: CGFloat = 250
+
+        for mote in dustMotes {
+            // Parse phase from name
+            let phase = Double(mote.name?.replacingOccurrences(of: "mote_", with: "") ?? "0") ?? 0
+
+            // Slow upward drift + gentle sine wobble
+            let time = CACurrentMediaTime() + phase
+            let wobbleX = CGFloat(sin(time * 0.5)) * 0.3
+            mote.position.x += wobbleX * CGFloat(dt) * 10
+            mote.position.y += CGFloat(dt) * 10  // ~10px/sec upward
+
+            // Reposition if too far from camera
+            let dx = mote.position.x - cameraPos.x
+            let dy = mote.position.y - cameraPos.y
+            if abs(dx) > viewHalf || abs(dy) > viewHalf {
+                mote.position = CGPoint(
+                    x: cameraPos.x + CGFloat.random(in: -viewHalf...viewHalf),
+                    y: cameraPos.y - viewHalf + CGFloat.random(in: -20...20)
+                )
+            }
+        }
+    }
+
+    // MARK: - Ambient: Floor Decorations (Leaves)
+
+    private func addFloorDecorations() {
+        for col in 0..<gameState.gridWidth {
+            for row in 0..<gameState.gridHeight {
+                guard gameState.isUnlockedTile(col: col, row: row) else { continue }
+                guard gameState.placedEquipment[GridPosition(col: col, row: row)] == nil else { continue }
+                // ~20% chance
+                guard Int.random(in: 0..<5) == 0 else { continue }
+
+                let screenPos = IsometricUtils.gridToScreen(col: col, row: row)
+
+                // Draw a tiny leaf via CGContext
+                let leafSize: CGFloat = 8
+                let renderer = UIGraphicsImageRenderer(size: CGSize(width: leafSize, height: leafSize))
+                let leafImage = renderer.image { ctx in
+                    let gc = ctx.cgContext
+                    // Warm green leaf shape (teardrop)
+                    let hue = CGFloat.random(in: 0.25...0.35) // green to yellow-green
+                    gc.setFillColor(UIColor(hue: hue, saturation: 0.45, brightness: 0.7, alpha: 0.8).cgColor)
+                    gc.move(to: CGPoint(x: leafSize / 2, y: 0))
+                    gc.addQuadCurve(to: CGPoint(x: leafSize / 2, y: leafSize), control: CGPoint(x: leafSize, y: leafSize * 0.5))
+                    gc.addQuadCurve(to: CGPoint(x: leafSize / 2, y: 0), control: CGPoint(x: 0, y: leafSize * 0.5))
+                    gc.fillPath()
+                    // Tiny vein line
+                    gc.setStrokeColor(UIColor(hue: hue, saturation: 0.3, brightness: 0.5, alpha: 0.5).cgColor)
+                    gc.setLineWidth(0.5)
+                    gc.move(to: CGPoint(x: leafSize / 2, y: 1))
+                    gc.addLine(to: CGPoint(x: leafSize / 2, y: leafSize - 1))
+                    gc.strokePath()
+                }
+
+                let leaf = SKSpriteNode(texture: SKTexture(image: leafImage))
+                // Place near tile edge so equipment isn't obscured
+                let offsetX = CGFloat.random(in: -12...12)
+                let offsetY = CGFloat.random(in: -6...6)
+                leaf.position = CGPoint(x: screenPos.x + offsetX, y: screenPos.y + offsetY)
+                leaf.zPosition = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.decorationLayer)
+
+                // Gentle slow sway: rotate ±3 degrees over 2.5s
+                let sway = SKAction.repeatForever(SKAction.sequence([
+                    SKAction.rotate(toAngle: .pi / 60, duration: 1.25),
+                    SKAction.rotate(toAngle: -.pi / 60, duration: 1.25)
+                ]))
+                sway.timingMode = .easeInEaseOut
+                leaf.run(sway)
+
+                floorLayer.addChild(leaf)
+            }
+        }
+    }
+
+    // MARK: - Ambient: Chimney Smoke
+
+    private func spawnChimney() {
+        // Place chimney at tile (5, 5) if no equipment there (corner of starting area)
+        let chimneyCol = 5
+        let chimneyRow = 5
+        let pos = GridPosition(col: chimneyCol, row: chimneyRow)
+
+        let screenPos = IsometricUtils.gridToScreen(col: chimneyCol, row: chimneyRow)
+        chimneyScreenPos = CGPoint(x: screenPos.x + 12, y: screenPos.y + 10)
+
+        // Only add visible chimney if no equipment at that spot
+        if gameState.placedEquipment[pos] == nil {
+            let chimneyW: CGFloat = 8
+            let chimneyH: CGFloat = 14
+            let renderer = UIGraphicsImageRenderer(size: CGSize(width: chimneyW, height: chimneyH))
+            let chimneyImage = renderer.image { ctx in
+                let gc = ctx.cgContext
+                // Warm brown chimney body
+                gc.setFillColor(UIColor(red: 0.55, green: 0.40, blue: 0.28, alpha: 1).cgColor)
+                gc.fill(CGRect(x: 0, y: 2, width: chimneyW, height: chimneyH - 2))
+                // Darker cap
+                gc.setFillColor(UIColor(red: 0.45, green: 0.33, blue: 0.22, alpha: 1).cgColor)
+                gc.fill(CGRect(x: -1, y: 0, width: chimneyW + 2, height: 3))
+            }
+
+            let sprite = SKSpriteNode(texture: SKTexture(image: chimneyImage))
+            sprite.position = chimneyScreenPos
+            sprite.zPosition = IsometricConstants.decorationLayer + 200
+            floorLayer.addChild(sprite)
+            chimneySprite = sprite
+        }
+    }
+
+    private func updateChimneySmoke(dt: TimeInterval) {
+        chimneyTimer += dt
+        guard chimneyTimer >= chimneyInterval else { return }
+        chimneyTimer = 0
+
+        let puff = SKShapeNode(circleOfRadius: CGFloat.random(in: 3...5))
+        puff.fillColor = UIColor(red: 0.75, green: 0.70, blue: 0.65, alpha: 1)
+        puff.strokeColor = .clear
+        puff.alpha = 0.35
+        puff.position = CGPoint(x: chimneyScreenPos.x, y: chimneyScreenPos.y + 8)
+        puff.zPosition = IsometricConstants.decorationLayer + 210
+        effectLayer.addChild(puff)
+
+        let floatHeight = CGFloat.random(in: 40...60)
+        let drift = CGFloat.random(in: -4...4)
+        puff.run(SKAction.sequence([
+            SKAction.group([
+                SKAction.moveBy(x: drift, y: floatHeight, duration: 2.0),
+                SKAction.scale(to: 1.5, duration: 2.0),
+                SKAction.fadeAlpha(to: 0, duration: 2.0)
+            ]),
+            SKAction.removeFromParent()
+        ]))
+    }
+
+    // MARK: - Ambient: Fireflies / Sparkles
+
+    private func spawnFireflies() {
+        let center = IsometricUtils.gridToScreen(col: 7, row: 7)
+
+        for _ in 0..<4 {
+            let firefly = SKShapeNode(circleOfRadius: CGFloat.random(in: 2...3))
+            firefly.fillColor = Theme.skAccentGold
+            firefly.strokeColor = .clear
+            firefly.alpha = 0.3
+            firefly.position = CGPoint(
+                x: center.x + CGFloat.random(in: -150...150),
+                y: center.y + CGFloat.random(in: -100...100)
+            )
+            firefly.zPosition = IsometricConstants.effectLayer + 2
+            firefly.glowWidth = 2
+            effectLayer.addChild(firefly)
+
+            // Alpha pulse for twinkling
+            let pulse = SKAction.repeatForever(SKAction.sequence([
+                SKAction.fadeAlpha(to: CGFloat.random(in: 0.4...0.6), duration: CGFloat.random(in: 0.8...1.5)),
+                SKAction.fadeAlpha(to: 0.3, duration: CGFloat.random(in: 0.8...1.5))
+            ]))
+            firefly.run(pulse, withKey: "pulse")
+
+            // Start wandering
+            fireflyWander(firefly, center: center)
+        }
+    }
+
+    private func fireflyWander(_ firefly: SKNode, center: CGPoint) {
+        let target = CGPoint(
+            x: center.x + CGFloat.random(in: -180...180),
+            y: center.y + CGFloat.random(in: -120...120)
+        )
+        let duration = TimeInterval.random(in: 3...5)
+        let move = SKAction.move(to: target, duration: duration)
+        move.timingMode = .easeInEaseOut
+        firefly.run(SKAction.sequence([
+            move,
+            SKAction.run { [weak self] in
+                self?.fireflyWander(firefly, center: center)
+            }
+        ]))
     }
 
     // MARK: - Screen Shake
