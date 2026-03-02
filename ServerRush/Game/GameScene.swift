@@ -567,6 +567,8 @@ final class GameScene: SKScene {
                     self.gameState.guideMessage = response
                     self.gameState.guideVisible = true
                     self.autoDismissGuide()
+                    // Voice the Mistral response through ElevenLabs
+                    ElevenLabsService.shared.speak(response)
                 }
             }
         } else {
