@@ -34,9 +34,9 @@ struct ContentView: View {
 
     private var gameView: some View {
         ZStack {
-            SpriteView(scene: makeScene(), preferredFramesPerSecond: 60)
-                .ignoresSafeArea()
-                .id("gameScene")  // Stable identity — don't recreate on state changes
+            // SpriteView isolated in its own non-observable wrapper
+            // so @Observable state changes don't recreate the SKView
+            StableSpriteView(scene: makeScene())
 
             VStack(spacing: 0) {
                 HUDView(gameState: gameState)
@@ -143,5 +143,27 @@ struct ContentView: View {
         scene.scaleMode = .resizeFill
         gameScene = scene
         return scene
+    }
+}
+
+// MARK: - Stable SpriteView Wrapper
+
+/// Wraps SpriteView in a UIViewRepresentable so SwiftUI never recreates the
+/// underlying SKView when @Observable state changes trigger body re-evaluation.
+struct StableSpriteView: UIViewRepresentable {
+    let scene: GameScene
+
+    func makeUIView(context: Context) -> SKView {
+        let skView = SKView()
+        skView.preferredFramesPerSecond = 60
+        skView.ignoresSiblingOrder = true
+        skView.allowsTransparency = false
+        skView.presentScene(scene)
+        return skView
+    }
+
+    func updateUIView(_ uiView: SKView, context: Context) {
+        // Intentionally empty — never re-present the scene.
+        // The scene is long-lived and manages its own state.
     }
 }

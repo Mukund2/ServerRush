@@ -218,11 +218,13 @@ final class GameState {
         }
 
         powerUsage = power
-        powerCapacity = max(powerCap, 1)
+        // Starter capacity: the data center has basic infrastructure even without
+        // generators/cooling placed — prevents instant death when placing first rack
+        powerCapacity = max(powerCap + 20, 1)
         coolingUsage = cooling
-        coolingCapacity = max(coolingCap, 1)
+        coolingCapacity = max(coolingCap + 25, 1)
         bandwidthUsage = bandwidth
-        bandwidthCapacity = max(bandwidthCap, 1)
+        bandwidthCapacity = max(bandwidthCap + 20, 1)
         revenuePerSecond = revenue
     }
 
