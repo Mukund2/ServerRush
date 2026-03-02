@@ -533,14 +533,93 @@ final class GameScene: SKScene {
         ]))
         sprite.run(personalityLoop, withKey: "personality")
 
-        // Show welcome message after a short delay, auto-dismiss after 6 seconds
+        // Show contextual welcome message after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
-            self?.gameState.guideMessage = "Welcome! Tap BUILD below to place your first server rack."
-            self?.gameState.guideVisible = true
+            self?.showContextualGuideMessage()
         }
+    }
+
+    // MARK: - Guide Messages
+
+    /// Tracks what the guide last said to avoid repeating
+    private var lastGuideKey: String = ""
+    private var guideMessageTimer: TimeInterval = 0
+
+    /// Shows a contextual guide message based on current game state.
+    private func showContextualGuideMessage() {
+        let (key, message) = contextualGuideMessage()
+        guard key != lastGuideKey else { return }
+        lastGuideKey = key
+        gameState.guideMessage = message
+        gameState.guideVisible = true
+
+        // Auto-dismiss after 8 seconds
         DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) { [weak self] in
             self?.gameState.guideVisible = false
         }
+    }
+
+    /// Returns (key, message) based on game state. Key prevents repeat showing.
+    private func contextualGuideMessage() -> (String, String) {
+        let eq = gameState.totalEquipmentPlaced
+        let racks = gameState.rackCount
+        let money = gameState.money
+        let incidents = gameState.totalIncidentsResolved
+        let expansions = gameState.unlockedExpansions.count
+
+        // First time — no equipment at all
+        if eq == 0 {
+            return ("welcome", "Welcome! Tap BUILD below to place your first server rack.")
+        }
+
+        // Has rack but no cooling/power yet
+        if racks > 0 && eq < 3 {
+            let hasCooling = gameState.placedEquipment.values.contains { $0.type.category == .cooling }
+            let hasPower = gameState.placedEquipment.values.contains { $0.type.category == .power }
+            if !hasCooling && !hasPower {
+                return ("needSupport", "Nice rack! Now add cooling and power to keep it running.")
+            }
+            if !hasCooling {
+                return ("needCooling", "Don't forget cooling — your servers will overheat without it!")
+            }
+            if !hasPower {
+                return ("needPower", "Add a power supply to keep everything running smoothly.")
+            }
+        }
+
+        // Just hit 3 equipment — encourage them
+        if eq >= 3 && incidents == 0 && expansions == 0 {
+            return ("goodSetup", "Great setup! Keep earning money. Watch out for incidents!")
+        }
+
+        // First incident resolved
+        if incidents == 1 {
+            return ("firstFix", "You fixed your first incident! Drag tools onto racks to resolve them fast.")
+        }
+
+        // Enough money for expansion
+        if expansions == 0 && money >= 600 {
+            return ("expandHint", "You're saving up nicely! Tap the dim tiles at the edge to expand.")
+        }
+
+        // After first expansion
+        if expansions == 1 {
+            return ("expanded", "Your data center is growing! New equipment types are now available.")
+        }
+
+        // Fallback: no new message
+        return (lastGuideKey, gameState.guideMessage ?? "")
+    }
+
+    /// Periodically check if there's a new contextual message to show (every 15 seconds).
+    private func updateGuideMessages(dt: TimeInterval) {
+        guideMessageTimer += dt
+        guard guideMessageTimer >= 15 else { return }
+        guideMessageTimer = 0
+
+        // Don't interrupt if guide is currently visible
+        guard !gameState.guideVisible else { return }
+        showContextualGuideMessage()
     }
 
     private func updateGuideWander(dt: TimeInterval) {
@@ -801,8 +880,9 @@ final class GameScene: SKScene {
         updateSteamWisps(dt: dt)
         updateDustMotes(dt: dt)
 
-        // Guide wander
+        // Guide wander + contextual messages
         updateGuideWander(dt: dt)
+        updateGuideMessages(dt: dt)
 
         // Sync visual state
         syncEquipmentVisuals()
