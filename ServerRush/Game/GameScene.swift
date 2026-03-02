@@ -813,17 +813,18 @@ final class GameScene: SKScene {
                 let tool = incident.requiredTool
                 guard let texture = toolTextures[tool] else { continue }
                 let icon = SKSpriteNode(texture: texture)
-                icon.setScale(0.7)
+                icon.setScale(1.0)
                 let screenPos = IsometricUtils.gridToScreen(col: pos.col, row: pos.row)
-                icon.position = CGPoint(x: screenPos.x + 20, y: screenPos.y + 25)
+                icon.position = CGPoint(x: screenPos.x + 30, y: screenPos.y + 35)
                 icon.zPosition = IsometricConstants.effectLayer + 80
                 icon.name = "toolIcon_\(pos.col)_\(pos.row)"
 
-                // Gentle bounce
+                // Attention-grabbing bounce
                 let bounce = SKAction.repeatForever(SKAction.sequence([
-                    SKAction.moveBy(x: 0, y: 3, duration: 0.5),
-                    SKAction.moveBy(x: 0, y: -3, duration: 0.5)
+                    SKAction.moveBy(x: 0, y: 5, duration: 0.4),
+                    SKAction.moveBy(x: 0, y: -5, duration: 0.4)
                 ]))
+                bounce.timingMode = .easeInEaseOut
                 icon.run(bounce)
 
                 effectLayer.addChild(icon)
@@ -1280,8 +1281,10 @@ final class GameScene: SKScene {
         for incident in gameState.activeIncidents where !incident.resolved && !incident.failed {
             let pos = incident.affectedPosition
             if let icon = toolIconSprites[pos] {
-                let dist = hypot(scenePoint.x - icon.position.x, scenePoint.y - icon.position.y)
-                if dist < 24 {
+                // Convert icon position to scene coordinates for accurate hit-testing
+                let iconInScene = effectLayer.convert(icon.position, to: self)
+                let dist = hypot(scenePoint.x - iconInScene.x, scenePoint.y - iconInScene.y)
+                if dist < 36 {
                     return incident
                 }
             }

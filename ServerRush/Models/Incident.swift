@@ -20,7 +20,7 @@ enum IncidentTool: String, CaseIterable, Codable {
 
     var icon: String {
         switch self {
-        case .fireExtinguisher: return "flame.fill"
+        case .fireExtinguisher: return "fire.extinguisher.fill"
         case .shield: return "shield.fill"
         case .wrench: return "wrench.fill"
         case .cablePlug: return "cable.connector.horizontal"

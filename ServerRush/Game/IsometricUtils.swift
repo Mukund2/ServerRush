@@ -42,10 +42,10 @@ enum IsometricUtils {
         return GridPosition(col: Int(round(col)), row: Int(round(row)))
     }
 
-    /// Compute z-position for depth sorting. Tiles further from camera (higher col+row) render behind.
+    /// Compute z-position for depth sorting. Tiles closer to camera (higher col+row, lower on screen) render in front.
     static func depthForPosition(col: Int, row: Int, layer: CGFloat = 0) -> CGFloat {
-        // Higher col+row means further back, so lower z. Layer offsets separate floor/objects/effects.
-        return layer - CGFloat(col + row)
+        // Higher col+row = closer to camera = drawn later = higher z-position.
+        return layer + CGFloat(col + row)
     }
 
     /// Center of the grid in screen coordinates.

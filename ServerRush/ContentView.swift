@@ -48,9 +48,10 @@ struct ContentView: View {
                         .padding(.top, 4)
                 }
 
-                // Incident alerts below guide
+                // Incident alerts below guide (pass touches through to SpriteKit)
                 if !gameState.activeIncidents.isEmpty {
                     IncidentAlertView(gameState: gameState)
+                        .allowsHitTesting(false)
                         .transition(.move(edge: .trailing))
                         .padding(.top, 4)
                 }
