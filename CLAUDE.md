@@ -9,6 +9,14 @@
 
 ---
 
+## BRANCH RULES (READ THIS FIRST)
+
+- **`main` is the hackathon submission. DO NOT merge anything into `main`.**
+- The `cozy-overhaul` branch is a post-hackathon visual overhaul (wood panel UI, grass tufts, butterflies, etc.). It is a **separate side project** — do NOT merge it into `main`.
+- New work should branch off `main` or `cozy-overhaul` as appropriate. Never merge either direction without explicit user approval.
+
+---
+
 ## GAME DESIGN DECISIONS (User-confirmed, do not change)
 
 ### Core Gameplay Loop
