@@ -170,6 +170,7 @@ final class InputHandler {
             gs.placeEquipment(buildType, at: gridPos)
             scene?.addEquipmentSprite(for: buildType, at: gridPos)
             AudioManager.shared.playBuildSound()
+            gs.buildMode = nil
         }
 
         gs.ghostPosition = nil
