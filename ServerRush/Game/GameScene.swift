@@ -15,6 +15,7 @@ final class GameScene: SKScene {
     private(set) var inputHandler: InputHandler!
 
     // Layers
+    private let sceneryLayer = SKNode()
     private let floorLayer = SKNode()
     private let equipmentLayer = SKNode()
     private let effectLayer = SKNode()
@@ -98,11 +99,13 @@ final class GameScene: SKScene {
         }
 
         // Layer hierarchy
+        sceneryLayer.zPosition = IsometricConstants.floorLayer - 10
         floorLayer.zPosition = IsometricConstants.floorLayer
         dustMoteLayer.zPosition = 500
         equipmentLayer.zPosition = IsometricConstants.objectLayer
         effectLayer.zPosition = IsometricConstants.effectLayer
         guideLayer.zPosition = IsometricConstants.effectLayer + 50
+        addChild(sceneryLayer)
         addChild(floorLayer)
         addChild(dustMoteLayer)
         addChild(equipmentLayer)
@@ -120,6 +123,9 @@ final class GameScene: SKScene {
         let center = IsometricUtils.gridToScreen(col: 7, row: 7)
         cameraController.cameraNode.position = center
         cameraController.installGestures(on: view)
+
+        // Background scenery (trees, bushes, etc.)
+        buildBackgroundScenery()
 
         // Build floor grid (6x6 initial)
         buildFloorGrid()
@@ -191,6 +197,200 @@ final class GameScene: SKScene {
             gridHeight: gameState.gridHeight,
             sceneSize: size
         )
+    }
+
+    // MARK: - Background Scenery
+
+    /// Adds trees, bushes, flowers, and rocks around the grid perimeter to fill the empty background.
+    private func buildBackgroundScenery() {
+        sceneryLayer.removeAllChildren()
+
+        let gridW = gameState.gridWidth
+        let gridH = gameState.gridHeight
+
+        // Place scenery in a ring outside the grid (cols/rows -3..-1 and gridW..gridW+2, same for rows)
+        // Also scatter some further out for depth
+        var sceneryPositions: [(col: Int, row: Int)] = []
+
+        // Inner ring: 1-2 tiles outside grid
+        for col in -2...(gridW + 1) {
+            for row in -2...(gridH + 1) {
+                // Skip positions inside the grid
+                if col >= 0 && col < gridW && row >= 0 && row < gridH { continue }
+                // ~40% density
+                if Int.random(in: 0..<5) < 2 {
+                    sceneryPositions.append((col, row))
+                }
+            }
+        }
+
+        // Outer ring: 3-5 tiles outside for depth
+        for col in stride(from: -5, to: gridW + 5, by: 2) {
+            for row in stride(from: -5, to: gridH + 5, by: 2) {
+                if col >= -2 && col <= gridW + 1 && row >= -2 && row <= gridH + 1 { continue }
+                if Int.random(in: 0..<3) == 0 {
+                    sceneryPositions.append((col, row))
+                }
+            }
+        }
+
+        for pos in sceneryPositions {
+            let screenPos = IsometricUtils.gridToScreen(col: pos.col, row: pos.row)
+            let kind = Int.random(in: 0..<10)
+
+            if kind < 4 {
+                // Tree (40%)
+                addTree(at: screenPos, col: pos.col, row: pos.row)
+            } else if kind < 7 {
+                // Bush (30%)
+                addBush(at: screenPos, col: pos.col, row: pos.row)
+            } else if kind < 9 {
+                // Flower cluster (20%)
+                addFlowerCluster(at: screenPos, col: pos.col, row: pos.row)
+            } else {
+                // Rock (10%)
+                addRock(at: screenPos, col: pos.col, row: pos.row)
+            }
+        }
+    }
+
+    private func addTree(at position: CGPoint, col: Int, row: Int) {
+        let treeW: CGFloat = 28
+        let treeH: CGFloat = 40
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: treeW, height: treeH))
+        let image = renderer.image { ctx in
+            let gc = ctx.cgContext
+            // Trunk (warm brown)
+            gc.setFillColor(UIColor(red: 0.55, green: 0.40, blue: 0.28, alpha: 1).cgColor)
+            gc.fill(CGRect(x: treeW / 2 - 3, y: treeH - 14, width: 6, height: 14))
+
+            // Canopy layers (overlapping circles for rounded look)
+            let greens: [UIColor] = [
+                UIColor(hue: 0.30, saturation: 0.40, brightness: 0.65, alpha: 1),
+                UIColor(hue: 0.28, saturation: 0.45, brightness: 0.58, alpha: 1),
+                UIColor(hue: 0.32, saturation: 0.35, brightness: 0.72, alpha: 1),
+            ]
+            gc.setFillColor(greens[1].cgColor)
+            gc.fillEllipse(in: CGRect(x: 1, y: 2, width: treeW - 2, height: 24))
+            gc.setFillColor(greens[0].cgColor)
+            gc.fillEllipse(in: CGRect(x: 4, y: 0, width: treeW - 8, height: 20))
+            gc.setFillColor(greens[2].cgColor)
+            gc.fillEllipse(in: CGRect(x: 7, y: 4, width: treeW - 14, height: 16))
+
+            // Highlight spot
+            gc.setFillColor(UIColor(red: 0.65, green: 0.78, blue: 0.55, alpha: 0.4).cgColor)
+            gc.fillEllipse(in: CGRect(x: 8, y: 3, width: 8, height: 6))
+        }
+
+        let sprite = SKSpriteNode(texture: SKTexture(image: image))
+        sprite.position = CGPoint(x: position.x + CGFloat.random(in: -8...8), y: position.y + 12)
+        sprite.zPosition = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.floorLayer - 5)
+        // Vary size slightly
+        let scale = CGFloat.random(in: 0.7...1.1)
+        sprite.setScale(scale)
+        sceneryLayer.addChild(sprite)
+
+        // Gentle sway
+        let sway = SKAction.repeatForever(SKAction.sequence([
+            SKAction.rotate(toAngle: CGFloat.random(in: 0.01...0.03), duration: CGFloat.random(in: 2.0...3.5)),
+            SKAction.rotate(toAngle: CGFloat.random(in: -0.03 ... -0.01), duration: CGFloat.random(in: 2.0...3.5)),
+        ]))
+        sprite.run(sway)
+    }
+
+    private func addBush(at position: CGPoint, col: Int, row: Int) {
+        let bushW: CGFloat = 18
+        let bushH: CGFloat = 14
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: bushW, height: bushH))
+        let image = renderer.image { ctx in
+            let gc = ctx.cgContext
+            let hue = CGFloat.random(in: 0.27...0.36)
+            // Main bush body
+            gc.setFillColor(UIColor(hue: hue, saturation: 0.40, brightness: 0.60, alpha: 1).cgColor)
+            gc.fillEllipse(in: CGRect(x: 0, y: 2, width: bushW, height: bushH - 2))
+            // Lighter highlight
+            gc.setFillColor(UIColor(hue: hue, saturation: 0.30, brightness: 0.72, alpha: 0.6).cgColor)
+            gc.fillEllipse(in: CGRect(x: 3, y: 1, width: bushW - 6, height: bushH - 6))
+            // Optional berry dots
+            if Bool.random() {
+                let berryColor = Bool.random()
+                    ? UIColor(red: 0.85, green: 0.35, blue: 0.35, alpha: 0.8) // red berries
+                    : UIColor(red: 0.75, green: 0.60, blue: 0.85, alpha: 0.8) // purple berries
+                gc.setFillColor(berryColor.cgColor)
+                for _ in 0..<3 {
+                    let bx = CGFloat.random(in: 4...(bushW - 4))
+                    let by = CGFloat.random(in: 3...(bushH - 4))
+                    gc.fillEllipse(in: CGRect(x: bx, y: by, width: 2.5, height: 2.5))
+                }
+            }
+        }
+
+        let sprite = SKSpriteNode(texture: SKTexture(image: image))
+        sprite.position = CGPoint(x: position.x + CGFloat.random(in: -6...6), y: position.y + 4)
+        sprite.zPosition = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.floorLayer - 5)
+        sprite.setScale(CGFloat.random(in: 0.8...1.2))
+        sceneryLayer.addChild(sprite)
+    }
+
+    private func addFlowerCluster(at position: CGPoint, col: Int, row: Int) {
+        let flowerColors: [UIColor] = [
+            UIColor(red: 0.90, green: 0.55, blue: 0.60, alpha: 1),  // soft pink
+            UIColor(red: 0.95, green: 0.80, blue: 0.45, alpha: 1),  // warm yellow
+            UIColor(red: 0.70, green: 0.60, blue: 0.85, alpha: 1),  // soft lavender
+            UIColor(red: 0.95, green: 0.70, blue: 0.50, alpha: 1),  // peach
+        ]
+
+        for i in 0..<Int.random(in: 2...4) {
+            let fSize: CGFloat = CGFloat.random(in: 4...6)
+            let renderer = UIGraphicsImageRenderer(size: CGSize(width: fSize + 2, height: fSize + 2))
+            let image = renderer.image { ctx in
+                let gc = ctx.cgContext
+                // Stem dot (green)
+                gc.setFillColor(UIColor(hue: 0.30, saturation: 0.40, brightness: 0.55, alpha: 0.7).cgColor)
+                gc.fillEllipse(in: CGRect(x: fSize / 2 - 0.5, y: fSize, width: 2, height: 2))
+                // Petal
+                let color = flowerColors[Int.random(in: 0..<flowerColors.count)]
+                gc.setFillColor(color.cgColor)
+                gc.fillEllipse(in: CGRect(x: 1, y: 1, width: fSize, height: fSize))
+                // Center
+                gc.setFillColor(UIColor(red: 0.95, green: 0.90, blue: 0.60, alpha: 1).cgColor)
+                gc.fillEllipse(in: CGRect(x: fSize / 2 - 1, y: fSize / 2 - 1, width: 3, height: 3))
+            }
+
+            let sprite = SKSpriteNode(texture: SKTexture(image: image))
+            let offsetX = CGFloat(i) * 5 - 5 + CGFloat.random(in: -3...3)
+            let offsetY = CGFloat.random(in: -3...3)
+            sprite.position = CGPoint(x: position.x + offsetX, y: position.y + offsetY)
+            sprite.zPosition = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.floorLayer - 5)
+            sceneryLayer.addChild(sprite)
+
+            // Gentle bob
+            let bob = SKAction.repeatForever(SKAction.sequence([
+                SKAction.moveBy(x: 0, y: CGFloat.random(in: 1...2), duration: CGFloat.random(in: 1.5...2.5)),
+                SKAction.moveBy(x: 0, y: CGFloat.random(in: -2 ... -1), duration: CGFloat.random(in: 1.5...2.5))
+            ]))
+            sprite.run(bob)
+        }
+    }
+
+    private func addRock(at position: CGPoint, col: Int, row: Int) {
+        let rockW: CGFloat = CGFloat.random(in: 10...16)
+        let rockH: CGFloat = rockW * CGFloat.random(in: 0.55...0.75)
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: rockW, height: rockH))
+        let image = renderer.image { ctx in
+            let gc = ctx.cgContext
+            let gray = CGFloat.random(in: 0.55...0.70)
+            gc.setFillColor(UIColor(red: gray, green: gray - 0.03, blue: gray - 0.06, alpha: 1).cgColor)
+            gc.fillEllipse(in: CGRect(x: 0, y: 0, width: rockW, height: rockH))
+            // Highlight
+            gc.setFillColor(UIColor(red: gray + 0.1, green: gray + 0.08, blue: gray + 0.05, alpha: 0.5).cgColor)
+            gc.fillEllipse(in: CGRect(x: 2, y: 1, width: rockW * 0.5, height: rockH * 0.4))
+        }
+
+        let sprite = SKSpriteNode(texture: SKTexture(image: image))
+        sprite.position = CGPoint(x: position.x + CGFloat.random(in: -5...5), y: position.y)
+        sprite.zPosition = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.floorLayer - 5)
+        sceneryLayer.addChild(sprite)
     }
 
     // MARK: - Equipment Sprites
@@ -329,26 +529,24 @@ final class GameScene: SKScene {
         guard guideWanderTimer >= guideWanderInterval else { return }
         guideWanderTimer = 0
 
-        // Pick a random walkable grid position within all unlocked tiles
+        // Only wander within the starting area (cols 5-10, rows 5-10) to stay on screen
         var candidates: [GridPosition] = []
-        for col in 0..<gameState.gridWidth {
-            for row in 0..<gameState.gridHeight {
+        for col in 5...10 {
+            for row in 5...10 {
                 let pos = GridPosition(col: col, row: row)
-                if gameState.isUnlockedTile(col: col, row: row) && gameState.placedEquipment[pos] == nil {
+                if gameState.placedEquipment[pos] == nil {
                     candidates.append(pos)
                 }
             }
         }
         guard let chosen = candidates.randomElement() else { return }
-        let col = chosen.col
-        let row = chosen.row
 
-        let target = IsometricUtils.gridToScreen(col: col, row: row)
+        let target = IsometricUtils.gridToScreen(col: chosen.col, row: chosen.row)
         let dest = CGPoint(x: target.x, y: target.y + 20)
 
         let moveAction = SKAction.move(to: dest, duration: 3.0)
         moveAction.timingMode = .easeInEaseOut
-        guideSprite?.run(moveAction)
+        guideSprite?.run(moveAction, withKey: "wander")
     }
 
     // MARK: - Particle Effects

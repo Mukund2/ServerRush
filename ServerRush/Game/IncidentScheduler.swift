@@ -15,18 +15,33 @@ final class IncidentScheduler {
 
     init(gameState: GameState) {
         self.gameState = gameState
-        // Initial delay before first incident
-        nextIncidentTimer = incidentInterval(rackCount: 0).upperBound
+        // Generous initial grace period — let the player build without pressure
+        nextIncidentTimer = 30
     }
 
     // MARK: - Frequency Scaling
 
     /// Returns the spawn interval range based on how many racks the player has.
-    /// More racks = more frequent incidents.
+    /// More racks = more frequent incidents. Early game is gentler.
     private func incidentInterval(rackCount: Int) -> ClosedRange<TimeInterval> {
-        let lo = max(5, 20 - Double(rackCount) * 2)
-        let hi = max(10, 35 - Double(rackCount) * 2)
-        return lo...hi
+        switch rackCount {
+        case 0: return 30...45
+        case 1: return 25...40
+        case 2...3: return 18...30
+        case 4...6: return 12...22
+        case 7...10: return 8...16
+        default: return max(5, 15 - Double(rackCount))...max(10, 22 - Double(rackCount))
+        }
+    }
+
+    /// Returns which incident types are available based on the player's rack count.
+    /// Gradually introduces harder incidents so new players aren't overwhelmed.
+    private func availableIncidentTypes(rackCount: Int) -> [IncidentType] {
+        var types: [IncidentType] = [.overheating]  // always available
+        if rackCount >= 3 { types.append(.cableFailure) }
+        if rackCount >= 5 { types.append(.ddosAttack) }
+        if rackCount >= 7 { types.append(.powerOutage) }
+        return types
     }
 
     // MARK: - Tick (called once per second from GameScene)
@@ -144,8 +159,9 @@ final class IncidentScheduler {
     // MARK: - Spawn (Telegraph)
 
     private func attemptSpawnTelegraph(_ state: GameState) {
-        // All incident types are available from the start (no level filtering)
-        let eligible = IncidentType.allCases.filter { type in
+        // Gate incident types by rack count so difficulty ramps gradually
+        let available = availableIncidentTypes(rackCount: state.rackCount)
+        let eligible = available.filter { type in
             (cooldowns[type] ?? 0) <= 0
         }
         guard !eligible.isEmpty else { return }

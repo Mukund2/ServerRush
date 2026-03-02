@@ -71,13 +71,21 @@ enum IncidentType: String, CaseIterable, Codable {
         }
     }
 
-    var timeToResolve: TimeInterval { 10 } // seconds before auto-fail
+    /// Seconds before auto-fail — easier incidents are more forgiving
+    var timeToResolve: TimeInterval {
+        switch self {
+        case .overheating: return 12
+        case .cableFailure: return 12
+        case .ddosAttack: return 10
+        case .powerOutage: return 10
+        }
+    }
 
     var damagePerTick: Double {
         switch self {
-        case .overheating: return 5
+        case .overheating: return 4
         case .ddosAttack: return 2
-        case .powerOutage: return 8
+        case .powerOutage: return 5
         case .cableFailure: return 3
         }
     }
