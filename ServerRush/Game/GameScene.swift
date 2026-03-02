@@ -544,22 +544,69 @@ final class GameScene: SKScene {
     /// Tracks what the guide last said to avoid repeating
     private var lastGuideKey: String = ""
     private var guideMessageTimer: TimeInterval = 0
+    private var lastMistralCallTime: TimeInterval = -60  // allow first call immediately
+    private var mistralCallInFlight = false
 
     /// Shows a contextual guide message based on current game state.
     private func showContextualGuideMessage() {
-        let (key, message) = contextualGuideMessage()
+        let (key, fallback) = contextualGuideMessage()
         guard key != lastGuideKey else { return }
         lastGuideKey = key
-        gameState.guideMessage = message
-        gameState.guideVisible = true
 
-        // Auto-dismiss after 8 seconds
+        // Throttle: max 1 Mistral call per 45 seconds
+        let now = gameState.playTime
+        if !mistralCallInFlight && (now - lastMistralCallTime) >= 45 {
+            mistralCallInFlight = true
+            lastMistralCallTime = now
+            let context = buildMistralContext(key: key, fallback: fallback)
+            Task { [weak self] in
+                let response = await MistralService.shared.getGuideMessage(context: context)
+                await MainActor.run {
+                    guard let self else { return }
+                    self.mistralCallInFlight = false
+                    self.gameState.guideMessage = response
+                    self.gameState.guideVisible = true
+                    self.autoDismissGuide()
+                }
+            }
+        } else {
+            // Use fallback immediately (no API call)
+            gameState.guideMessage = fallback
+            gameState.guideVisible = true
+            autoDismissGuide()
+        }
+    }
+
+    private func autoDismissGuide() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 8.0) { [weak self] in
             self?.gameState.guideVisible = false
         }
     }
 
-    /// Returns (key, message) based on game state. Key prevents repeat showing.
+    /// Build a rich context string for Mistral describing the current game state.
+    private func buildMistralContext(key: String, fallback: String) -> String {
+        let eq = gameState.totalEquipmentPlaced
+        let racks = gameState.rackCount
+        let money = Int(gameState.money)
+        let rev = String(format: "%.1f", gameState.revenuePerSecond)
+        let incidents = gameState.totalIncidentsResolved
+        let activeInc = gameState.activeIncidents.count
+        let expansions = gameState.unlockedExpansions.count
+        let power = Int(gameState.powerPercent)
+        let cooling = Int(gameState.coolingPercent)
+        let uptime = String(format: "%.1f", gameState.uptimePercent)
+
+        return """
+            Situation: \(key). \
+            Player stats — money: $\(money), revenue/sec: $\(rev), \
+            equipment placed: \(eq) (\(racks) racks), \
+            incidents resolved: \(incidents), active incidents: \(activeInc), \
+            expansions: \(expansions), power: \(power)%, cooling: \(cooling)%, uptime: \(uptime)%. \
+            Give a short, personalized comment.
+            """
+    }
+
+    /// Returns (key, fallback message) based on game state. Key prevents repeat showing.
     private func contextualGuideMessage() -> (String, String) {
         let eq = gameState.totalEquipmentPlaced
         let racks = gameState.rackCount
@@ -587,6 +634,11 @@ final class GameScene: SKScene {
             }
         }
 
+        // Active incidents — urgent
+        if gameState.activeIncidents.count >= 2 {
+            return ("multiIncident_\(gameState.activeIncidents.count)", "Multiple incidents! Prioritize the critical ones first!")
+        }
+
         // Just hit 3 equipment — encourage them
         if eq >= 3 && incidents == 0 && expansions == 0 {
             return ("goodSetup", "Great setup! Keep earning money. Watch out for incidents!")
@@ -595,6 +647,14 @@ final class GameScene: SKScene {
         // First incident resolved
         if incidents == 1 {
             return ("firstFix", "You fixed your first incident! Drag tools onto racks to resolve them fast.")
+        }
+
+        // Resource warnings
+        if gameState.powerPercent > 85 {
+            return ("powerWarn_\(Int(gameState.powerPercent / 5) * 5)", "Power usage is getting high! Add more generators.")
+        }
+        if gameState.coolingPercent > 85 {
+            return ("coolingWarn_\(Int(gameState.coolingPercent / 5) * 5)", "Temperatures rising! Your servers need more cooling.")
         }
 
         // Enough money for expansion
@@ -607,14 +667,19 @@ final class GameScene: SKScene {
             return ("expanded", "Your data center is growing! New equipment types are now available.")
         }
 
+        // Periodic revenue milestone
+        if gameState.revenuePerSecond >= 10 && eq >= 6 {
+            return ("revenue_\(Int(gameState.revenuePerSecond / 5) * 5)", "Revenue is rolling in! You're a real server mogul.")
+        }
+
         // Fallback: no new message
         return (lastGuideKey, gameState.guideMessage ?? "")
     }
 
-    /// Periodically check if there's a new contextual message to show (every 15 seconds).
+    /// Periodically check if there's a new contextual message to show (every 20 seconds).
     private func updateGuideMessages(dt: TimeInterval) {
         guideMessageTimer += dt
-        guard guideMessageTimer >= 15 else { return }
+        guard guideMessageTimer >= 20 else { return }
         guideMessageTimer = 0
 
         // Don't interrupt if guide is currently visible
