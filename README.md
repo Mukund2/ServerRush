@@ -110,7 +110,7 @@ ServerRush/
 
 ## Visual Style
 
-Warm, cozy Hay Day / Stardew Valley aesthetic. No cyberpunk, no neon, no corporate dashboards.
+Warm, cozy Hay Day / Stardew Valley aesthetic.
 
 | Role | Color | Hex |
 |------|-------|-----|
