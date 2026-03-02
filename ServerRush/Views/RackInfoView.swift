@@ -34,11 +34,7 @@ struct RackInfoView: View {
             .padding(.horizontal, 20)
             .padding(.bottom, 20)
         }
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                .fill(Theme.background)
-                .shadow(color: Theme.woodTone.opacity(0.25), radius: 12, y: -6)
-        )
+        .woodPanel(cornerRadius: Theme.Radius.xl, borderWidth: 3, shadowRadius: 10)
         .padding(.horizontal, 12)
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
@@ -52,6 +48,10 @@ struct RackInfoView: View {
                 Circle()
                     .fill(Theme.cardBackground)
                     .frame(width: 48, height: 48)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(Theme.woodTone.opacity(0.2), lineWidth: 1)
+                    )
 
                 VStack(spacing: 2) {
                     Text(moodEmoji)
@@ -74,7 +74,12 @@ struct RackInfoView: View {
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
                         .background(
-                            Capsule().fill(Theme.accent.opacity(0.12))
+                            Capsule()
+                                .fill(Theme.accent.opacity(0.12))
+                                .overlay(
+                                    Capsule()
+                                        .strokeBorder(Theme.accent.opacity(0.2), lineWidth: 0.5)
+                                )
                         )
 
                     statusBadge
@@ -92,7 +97,14 @@ struct RackInfoView: View {
                     .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(Theme.textSecondary)
                     .frame(width: 30, height: 30)
-                    .background(Circle().fill(Theme.cardBackground))
+                    .background(
+                        Circle()
+                            .fill(Theme.cardBackground)
+                            .overlay(
+                                Circle()
+                                    .strokeBorder(Theme.woodTone.opacity(0.15), lineWidth: 0.5)
+                            )
+                    )
             }
         }
     }
@@ -113,7 +125,14 @@ struct RackInfoView: View {
             .foregroundStyle(color)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background(Capsule().fill(color.opacity(0.12)))
+            .background(
+                Capsule()
+                    .fill(color.opacity(0.12))
+                    .overlay(
+                        Capsule()
+                            .strokeBorder(color.opacity(0.25), lineWidth: 0.5)
+                    )
+            )
     }
 
     // MARK: - Stats
@@ -173,6 +192,10 @@ struct RackInfoView: View {
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.sm)
                 .fill(color.opacity(0.08))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                        .strokeBorder(color.opacity(0.15), lineWidth: 0.5)
+                )
         )
     }
 
@@ -195,14 +218,18 @@ struct RackInfoView: View {
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 5)
                             .fill(Theme.cardBackground)
-                        RoundedRectangle(cornerRadius: 4)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .strokeBorder(Theme.woodTone.opacity(0.15), lineWidth: 0.5)
+                            )
+                        RoundedRectangle(cornerRadius: 5)
                             .fill(healthColor)
                             .frame(width: geo.size.width * equipment.health / 100)
                     }
                 }
-                .frame(height: 8)
+                .frame(height: 10)
             }
 
             // Temperature bar
@@ -220,9 +247,13 @@ struct RackInfoView: View {
 
                 GeometryReader { geo in
                     ZStack(alignment: .leading) {
-                        RoundedRectangle(cornerRadius: 4)
+                        RoundedRectangle(cornerRadius: 5)
                             .fill(Theme.cardBackground)
-                        RoundedRectangle(cornerRadius: 4)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 5)
+                                    .strokeBorder(Theme.woodTone.opacity(0.15), lineWidth: 0.5)
+                            )
+                        RoundedRectangle(cornerRadius: 5)
                             .fill(
                                 LinearGradient(
                                     colors: [Color(red: 0.55, green: 0.72, blue: 0.88), Theme.accent, Theme.critical],
@@ -233,7 +264,7 @@ struct RackInfoView: View {
                             .frame(width: geo.size.width * min(equipment.temperature / 100, 1.0))
                     }
                 }
-                .frame(height: 8)
+                .frame(height: 10)
             }
         }
     }
@@ -278,11 +309,8 @@ struct RackInfoView: View {
                     .foregroundStyle(canUpgrade ? .white : Theme.textSecondary.opacity(0.5))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
-                    .background(
-                        RoundedRectangle(cornerRadius: Theme.Radius.md)
-                            .fill(canUpgrade ? Theme.accent : Theme.cardBackground)
-                    )
                 }
+                .buttonStyle(CozyButtonStyle(color: canUpgrade ? Theme.accent : Theme.cardBackground, cornerRadius: Theme.Radius.md))
                 .disabled(!canUpgrade)
             }
 
@@ -313,11 +341,8 @@ struct RackInfoView: View {
                 .foregroundStyle(Theme.textPrimary)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(
-                    RoundedRectangle(cornerRadius: Theme.Radius.md)
-                        .fill(showConfirmSell ? Theme.woodTone.opacity(0.3) : Theme.cardBackground)
-                )
             }
+            .buttonStyle(CozyButtonStyle(color: showConfirmSell ? Theme.woodTone.opacity(0.5) : Theme.cardBackground, cornerRadius: Theme.Radius.md))
             .animation(.spring(response: 0.3), value: showConfirmSell)
         }
     }

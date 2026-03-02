@@ -93,7 +93,7 @@ enum TextureFactory {
 
     // MARK: Floor Tile
 
-    /// Warm beige diamond with subtle wood-grain lines.
+    /// Warm beige diamond with subtle wood-grain lines, inner glow, and cozy depth.
     static func floorTileTexture() -> SKTexture {
         let w = IsometricConstants.tileWidth
         let h = IsometricConstants.tileHeight
@@ -102,32 +102,70 @@ enum TextureFactory {
             let gc = ctx.cgContext
             let path = diamondPath(width: w, height: h)
 
-            // Warm beige fill
+            // Base warm beige fill
             gc.setFillColor(UIColor(red: 0.90, green: 0.84, blue: 0.75, alpha: 1).cgColor)
             gc.addPath(path)
             gc.fillPath()
+
+            // Subtle warm gradient: lighter in center for depth
+            gc.saveGState()
+            gc.addPath(path)
+            gc.clip()
+            let centerX = w / 2
+            let centerY = h / 2
+            let radialColors: [CGFloat] = [
+                0.94, 0.88, 0.80, 1.0,    // center: slightly lighter warm
+                0.87, 0.80, 0.71, 0.4     // edge: fade to transparent
+            ]
+            let colorSpace = CGColorSpaceCreateDeviceRGB()
+            if let gradient = CGGradient(colorSpace: colorSpace, colorComponents: radialColors, locations: [0, 1], count: 2) {
+                gc.drawRadialGradient(gradient, startCenter: CGPoint(x: centerX, y: centerY), startRadius: 0,
+                                      endCenter: CGPoint(x: centerX, y: centerY), endRadius: w * 0.45,
+                                      options: .drawsAfterEndLocation)
+            }
+            gc.restoreGState()
 
             // Subtle wood-grain lines
             gc.saveGState()
             gc.addPath(path)
             gc.clip()
-            gc.setStrokeColor(UIColor(red: 0.82, green: 0.75, blue: 0.65, alpha: 0.4).cgColor)
+            gc.setStrokeColor(UIColor(red: 0.82, green: 0.75, blue: 0.65, alpha: 0.35).cgColor)
             gc.setLineWidth(0.5)
-            let grainSpacing: CGFloat = 6
+            let grainSpacing: CGFloat = 5
             var y: CGFloat = 0
             while y < h {
+                // Slightly wavy grain lines for natural look
                 gc.move(to: CGPoint(x: 0, y: y))
-                gc.addLine(to: CGPoint(x: w, y: y))
+                gc.addLine(to: CGPoint(x: w, y: y + CGFloat.random(in: -0.5...0.5)))
                 y += grainSpacing
             }
             gc.strokePath()
+
+            // Random knot/spot for texture variation (~20% of tiles)
+            if Int.random(in: 0..<5) == 0 {
+                let knotX = CGFloat.random(in: w * 0.25...w * 0.75)
+                let knotY = CGFloat.random(in: h * 0.25...h * 0.75)
+                gc.setFillColor(UIColor(red: 0.80, green: 0.72, blue: 0.60, alpha: 0.3).cgColor)
+                gc.fillEllipse(in: CGRect(x: knotX - 2, y: knotY - 1.5, width: 4, height: 3))
+            }
             gc.restoreGState()
 
-            // Warm brown border
-            gc.setStrokeColor(UIColor(red: 0.73, green: 0.64, blue: 0.52, alpha: 0.6).cgColor)
-            gc.setLineWidth(1)
+            // Warm brown border with slight depth
+            gc.setStrokeColor(UIColor(red: 0.70, green: 0.60, blue: 0.48, alpha: 0.7).cgColor)
+            gc.setLineWidth(1.2)
             gc.addPath(path)
             gc.strokePath()
+
+            // Inner highlight on top-left edges for 3D depth
+            gc.saveGState()
+            gc.addPath(path)
+            gc.clip()
+            gc.setStrokeColor(UIColor(red: 0.96, green: 0.92, blue: 0.86, alpha: 0.5).cgColor)
+            gc.setLineWidth(0.8)
+            gc.move(to: CGPoint(x: w / 2 + 1, y: 1))
+            gc.addLine(to: CGPoint(x: 1, y: h / 2))
+            gc.strokePath()
+            gc.restoreGState()
         }
         return SKTexture(image: image)
     }

@@ -4,7 +4,7 @@ struct HUDView: View {
     let gameState: GameState
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: 6) {
             // Top row: Money + Objective
             HStack(spacing: 8) {
                 moneySection
@@ -21,7 +21,7 @@ struct HUDView: View {
             }
 
             // Bottom row: Resource bars
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 resourceIndicator(
                     icon: "bolt.fill",
                     label: "Power",
@@ -42,13 +42,9 @@ struct HUDView: View {
                 )
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.md)
-                .fill(Theme.background.opacity(0.92))
-                .shadow(color: Theme.woodTone.opacity(0.15), radius: 4, y: 2)
-        )
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .woodPanel(cornerRadius: Theme.Radius.lg, borderWidth: 3, shadowRadius: 6)
         .padding(.horizontal, 8)
         .padding(.top, 4)
         .animation(.spring(response: 0.3), value: gameState.money)
@@ -61,8 +57,14 @@ struct HUDView: View {
 
     private var moneySection: some View {
         HStack(spacing: 6) {
-            Text("\u{1FA99}")
-                .font(.system(size: 18))
+            // Coin bag icon
+            ZStack {
+                Circle()
+                    .fill(Theme.accentGold.opacity(0.2))
+                    .frame(width: 28, height: 28)
+                Text("\u{1FA99}")
+                    .font(.system(size: 16))
+            }
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("$\(Int(gameState.money))")
@@ -88,10 +90,14 @@ struct HUDView: View {
         }
         .foregroundStyle(gameState.uptimePercent >= 99 ? Theme.positive : Theme.warning)
         .padding(.horizontal, 8)
-        .padding(.vertical, 3)
+        .padding(.vertical, 4)
         .background(
             Capsule()
-                .fill((gameState.uptimePercent >= 99 ? Theme.positive : Theme.warning).opacity(0.1))
+                .fill((gameState.uptimePercent >= 99 ? Theme.positive : Theme.warning).opacity(0.12))
+                .overlay(
+                    Capsule()
+                        .strokeBorder((gameState.uptimePercent >= 99 ? Theme.positive : Theme.warning).opacity(0.25), lineWidth: 1)
+                )
         )
     }
 
@@ -106,24 +112,32 @@ struct HUDView: View {
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
+                    RoundedRectangle(cornerRadius: 4)
                         .fill(Theme.cardBackground)
-                    RoundedRectangle(cornerRadius: 3)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .strokeBorder(Theme.woodTone.opacity(0.2), lineWidth: 0.5)
+                        )
+                    RoundedRectangle(cornerRadius: 4)
                         .fill(Theme.accent)
                         .frame(width: geo.size.width * min(objective.progress, 1.0))
                 }
             }
-            .frame(width: 40, height: 5)
+            .frame(width: 40, height: 6)
 
             Text("\(Int(objective.progress * 100))%")
                 .font(Theme.headlineFont(size: 10))
                 .foregroundStyle(Theme.accent)
         }
         .padding(.horizontal, 8)
-        .padding(.vertical, 3)
+        .padding(.vertical, 4)
         .background(
             Capsule()
                 .fill(Theme.accent.opacity(0.08))
+                .overlay(
+                    Capsule()
+                        .strokeBorder(Theme.accent.opacity(0.15), lineWidth: 0.5)
+                )
         )
     }
 
@@ -134,19 +148,31 @@ struct HUDView: View {
             Image(systemName: icon)
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(fillColor)
-                .frame(width: 12)
+                .frame(width: 14)
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
+                    // Track with border
+                    RoundedRectangle(cornerRadius: 4)
                         .fill(Theme.cardBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .strokeBorder(Theme.woodTone.opacity(0.15), lineWidth: 0.5)
+                        )
 
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(fillColor)
+                    // Fill bar
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                colors: [fillColor.opacity(0.8), fillColor],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                         .frame(width: geo.size.width * min(percent / 100, 1.0))
                 }
             }
-            .frame(height: 5)
+            .frame(height: 7)
 
             Text(resourceStatusEmoji(percent))
                 .font(.system(size: 9))

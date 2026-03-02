@@ -32,15 +32,11 @@ struct BuildMenuView: View {
                     categoryTabs
                     equipmentList
                 }
-                .padding(.bottom, 6)
+                .padding(.bottom, 8)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Theme.background.opacity(0.95))
-                .shadow(color: Theme.woodTone.opacity(0.2), radius: 8, y: -3)
-        )
+        .woodPanel(cornerRadius: 18, borderWidth: 3, shadowRadius: 8)
         .padding(.horizontal, 8)
         .padding(.bottom, 4)
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: isExpanded)
@@ -73,6 +69,10 @@ struct BuildMenuView: View {
                     .background(
                         Capsule()
                             .fill(Theme.critical.opacity(0.1))
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(Theme.critical.opacity(0.2), lineWidth: 1)
+                            )
                     )
             }
         }
@@ -92,13 +92,14 @@ struct BuildMenuView: View {
                 Capsule()
                     .fill(Theme.woodTone.opacity(0.4))
                     .frame(width: 32, height: 4)
-                    .padding(.top, 6)
+                    .padding(.top, 8)
 
                 HStack(spacing: 5) {
                     Image(systemName: "wrench.and.screwdriver.fill")
-                        .font(.system(size: 10))
+                        .font(.system(size: 11))
+                        .foregroundStyle(Theme.accent)
                     Text("BUILD")
-                        .font(Theme.headlineFont(size: 11))
+                        .font(Theme.headlineFont(size: 12))
                     Image(systemName: isExpanded ? "chevron.down" : "chevron.up")
                         .font(.system(size: 9, weight: .bold))
                 }
@@ -131,17 +132,24 @@ struct BuildMenuView: View {
                         isSelected ? .white : (hasItems ? Theme.textPrimary : Theme.textSecondary.opacity(0.4))
                     )
                     .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
+                    .padding(.vertical, 6)
                     .background(
                         Capsule()
                             .fill(isSelected ? categoryColor(category) : Theme.cardBackground.opacity(0.6))
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(
+                                        isSelected ? categoryColor(category).opacity(0.8) : Theme.woodTone.opacity(0.15),
+                                        lineWidth: 1
+                                    )
+                            )
                     )
                 }
                 .disabled(!hasItems)
             }
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 
     // MARK: - Equipment List
@@ -176,10 +184,15 @@ private struct WarmEquipmentCard: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 8) {
-                Image(systemName: type.icon)
-                    .font(.system(size: 20))
-                    .foregroundStyle(canAfford ? Theme.accent : Theme.textSecondary.opacity(0.4))
-                    .frame(width: 24)
+                // Equipment icon in a circle
+                ZStack {
+                    Circle()
+                        .fill(canAfford ? Theme.accent.opacity(0.15) : Theme.cardBackground.opacity(0.5))
+                        .frame(width: 32, height: 32)
+                    Image(systemName: type.icon)
+                        .font(.system(size: 16))
+                        .foregroundStyle(canAfford ? Theme.accent : Theme.textSecondary.opacity(0.4))
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(type.displayName)
@@ -188,6 +201,8 @@ private struct WarmEquipmentCard: View {
                         .lineLimit(1)
 
                     HStack(spacing: 3) {
+                        Text("\u{1FA99}")
+                            .font(.system(size: 9))
                         Text("$\(Int(type.cost))")
                             .font(Theme.moneyFont(size: 11))
                             .foregroundStyle(canAfford ? Theme.accentGold : Theme.critical.opacity(0.6))
@@ -199,9 +214,13 @@ private struct WarmEquipmentCard: View {
             .padding(.vertical, 8)
             .padding(.horizontal, 10)
             .background(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 12)
                     .fill(Theme.cardBackground.opacity(canAfford ? 1 : 0.5))
-                    .shadow(color: Theme.woodTone.opacity(canAfford ? 0.12 : 0), radius: 3, y: 1)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .strokeBorder(Theme.woodTone.opacity(canAfford ? 0.2 : 0.08), lineWidth: 1)
+                    )
+                    .shadow(color: Theme.woodTone.opacity(canAfford ? 0.12 : 0), radius: 3, y: 2)
             )
             .opacity(canAfford ? 1 : 0.6)
         }

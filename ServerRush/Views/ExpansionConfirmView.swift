@@ -9,10 +9,14 @@ struct ExpansionConfirmView: View {
 
     var body: some View {
         VStack(spacing: 20) {
-            // Header
-            Text("Expand Your Data Center?")
-                .font(Theme.headlineFont(size: 22))
-                .foregroundStyle(Theme.textPrimary)
+            // Header with emoji
+            VStack(spacing: 6) {
+                Text("\u{1F3D7}")
+                    .font(.system(size: 36))
+                Text("Expand Your Data Center?")
+                    .font(Theme.headlineFont(size: 20))
+                    .foregroundStyle(Theme.textPrimary)
+            }
 
             // Zone info
             VStack(spacing: 12) {
@@ -24,9 +28,13 @@ struct ExpansionConfirmView: View {
                         .font(Theme.bodyFont(size: 15))
                         .foregroundStyle(Theme.textSecondary)
                     Spacer()
-                    Text("$\(Int(zone.cost))")
-                        .font(Theme.headlineFont(size: 20))
-                        .foregroundStyle(canAfford ? Theme.positive : Theme.critical)
+                    HStack(spacing: 3) {
+                        Text("\u{1FA99}")
+                            .font(.system(size: 14))
+                        Text("$\(Int(zone.cost))")
+                            .font(Theme.headlineFont(size: 20))
+                            .foregroundStyle(canAfford ? Theme.positive : Theme.critical)
+                    }
                 }
 
                 // Equipment unlocks
@@ -65,6 +73,10 @@ struct ExpansionConfirmView: View {
             .background(
                 RoundedRectangle(cornerRadius: Theme.Radius.md)
                     .fill(Theme.cardBackground.opacity(0.6))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.md)
+                            .strokeBorder(Theme.woodTone.opacity(0.15), lineWidth: 0.5)
+                    )
             )
 
             // Buttons
@@ -77,11 +89,8 @@ struct ExpansionConfirmView: View {
                         .foregroundStyle(Theme.textSecondary)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .stroke(Theme.textSecondary.opacity(0.3), lineWidth: 1.5)
-                        )
                 }
+                .buttonStyle(CozyButtonStyle(color: Theme.cardBackground, cornerRadius: 16))
 
                 Button {
                     guard canAfford else { return }
@@ -92,12 +101,8 @@ struct ExpansionConfirmView: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(canAfford ? Theme.accent : Theme.textSecondary.opacity(0.3))
-                                .shadow(color: canAfford ? Theme.accent.opacity(0.4) : .clear, radius: 6)
-                        )
                 }
+                .buttonStyle(CozyButtonStyle(color: canAfford ? Theme.accent : Theme.textSecondary.opacity(0.3), cornerRadius: 16))
                 .disabled(!canAfford)
             }
 
@@ -109,10 +114,6 @@ struct ExpansionConfirmView: View {
         }
         .padding(24)
         .frame(maxWidth: 340)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                .fill(Theme.background)
-                .shadow(color: Theme.woodTone.opacity(0.3), radius: 20)
-        )
+        .woodPanel(cornerRadius: Theme.Radius.xl, borderWidth: 4, shadowRadius: 16)
     }
 }

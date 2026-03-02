@@ -69,8 +69,13 @@ private struct WarmIncidentCard: View {
         VStack(alignment: .leading, spacing: 8) {
             // Header with emoji face + description
             HStack(spacing: 8) {
-                Text(incidentEmoji)
-                    .font(.system(size: 22))
+                ZStack {
+                    Circle()
+                        .fill(incidentAccentColor.opacity(0.15))
+                        .frame(width: 32, height: 32)
+                    Text(incidentEmoji)
+                        .font(.system(size: 18))
+                }
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text(incidentMessage)
@@ -89,15 +94,25 @@ private struct WarmIncidentCard: View {
             // Timer bar (warm orange draining left to right)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 3)
+                    RoundedRectangle(cornerRadius: 4)
                         .fill(Theme.cardBackground)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .strokeBorder(Theme.woodTone.opacity(0.15), lineWidth: 0.5)
+                        )
 
-                    RoundedRectangle(cornerRadius: 3)
-                        .fill(Theme.accent)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(
+                            LinearGradient(
+                                colors: [incidentAccentColor.opacity(0.7), incidentAccentColor],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
                         .frame(width: geo.size.width * (1.0 - incident.progress))
                 }
             }
-            .frame(height: 5)
+            .frame(height: 6)
 
             // Drag hint
             HStack(spacing: 4) {
@@ -106,25 +121,26 @@ private struct WarmIncidentCard: View {
                     .foregroundStyle(Theme.textPrimary)
             }
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .padding(.vertical, 7)
             .background(
                 RoundedRectangle(cornerRadius: Theme.Radius.sm)
-                    .fill(incidentAccentColor.opacity(0.15))
+                    .fill(incidentAccentColor.opacity(0.12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Theme.Radius.sm)
+                            .strokeBorder(incidentAccentColor.opacity(0.2), lineWidth: 0.5)
+                    )
             )
         }
         .padding(12)
-        .frame(width: 190)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Theme.background)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .strokeBorder(
-                            incidentAccentColor.opacity(isPulsing ? 0.5 : 0.2),
-                            lineWidth: 1.5
-                        )
+        .frame(width: 195)
+        .woodPanel(cornerRadius: 14, borderWidth: 2, shadowRadius: 6)
+        .overlay(
+            // Pulsing accent border on top of wood frame
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .strokeBorder(
+                    incidentAccentColor.opacity(isPulsing ? 0.4 : 0.1),
+                    lineWidth: 1.5
                 )
-                .shadow(color: incidentAccentColor.opacity(0.15), radius: 6)
         )
         .onAppear {
             withAnimation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true)) {

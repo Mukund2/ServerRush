@@ -97,23 +97,15 @@ struct MilestoneView: View {
                             .foregroundStyle(.white)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 16)
-                            .background(
-                                RoundedRectangle(cornerRadius: 20)
-                                    .fill(Theme.accent)
-                                    .shadow(color: Theme.accent.opacity(0.4), radius: 8)
-                            )
                     }
+                    .buttonStyle(CozyButtonStyle(color: Theme.accent, cornerRadius: 20))
                     .padding(.horizontal, 20)
                     .transition(.opacity.combined(with: .move(edge: .bottom)))
                 }
             }
             .padding(32)
             .frame(maxWidth: 380)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.xl, style: .continuous)
-                    .fill(Theme.background)
-                    .shadow(color: Theme.woodTone.opacity(0.3), radius: 20)
-            )
+            .woodPanel(cornerRadius: Theme.Radius.xl, borderWidth: 4, shadowRadius: 16)
         }
         .onAppear { animateIn() }
     }
@@ -145,6 +137,10 @@ struct MilestoneView: View {
         .background(
             RoundedRectangle(cornerRadius: Theme.Radius.md)
                 .fill(Theme.cardBackground.opacity(0.6))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Theme.Radius.md)
+                        .strokeBorder(Theme.woodTone.opacity(0.15), lineWidth: 0.5)
+                )
         )
     }
 

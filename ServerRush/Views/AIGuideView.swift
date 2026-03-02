@@ -10,18 +10,22 @@ struct AIGuideView: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            // Chip avatar (smaller)
+            // Chip avatar (smaller, in cozy circle)
             ZStack {
                 Circle()
                     .fill(Theme.accent)
-                    .frame(width: 32, height: 32)
+                    .frame(width: 34, height: 34)
+                    .overlay(
+                        Circle()
+                            .strokeBorder(Theme.woodLight, lineWidth: 2)
+                    )
                     .shadow(color: Theme.accent.opacity(0.3), radius: 3)
 
                 Text("\u{1F9D1}\u{200D}\u{1F527}")
-                    .font(.system(size: 14))
+                    .font(.system(size: 15))
             }
 
-            // Compact speech bubble
+            // Compact speech bubble with wood frame
             HStack(spacing: 6) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Chip")
@@ -46,20 +50,19 @@ struct AIGuideView: View {
                         .font(.system(size: 9, weight: .bold))
                         .foregroundStyle(Theme.textSecondary)
                         .padding(6)
-                        .background(Circle().fill(Theme.cardBackground))
+                        .background(
+                            Circle()
+                                .fill(Theme.cardBackground)
+                                .overlay(
+                                    Circle()
+                                        .strokeBorder(Theme.woodTone.opacity(0.2), lineWidth: 0.5)
+                                )
+                        )
                 }
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
-                    .fill(Theme.background.opacity(0.95))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: Theme.Radius.md, style: .continuous)
-                            .strokeBorder(Theme.woodTone.opacity(0.2), lineWidth: 1)
-                    )
-                    .shadow(color: Theme.woodTone.opacity(0.1), radius: 4)
-            )
+            .woodPanel(cornerRadius: Theme.Radius.md, borderWidth: 2, shadowRadius: 4)
         }
         .frame(maxWidth: 400)
         .padding(.horizontal, 16)
