@@ -376,7 +376,7 @@ enum TextureFactory {
 
     // MARK: Expansion Tile
 
-    /// Locked area diamond with coin icon and price text.
+    /// Cozy green "buy land" diamond with coin icon and price text (Hay Day-style).
     static func expansionTileTexture(cost: Double) -> SKTexture {
         let w = IsometricConstants.tileWidth
         let h = IsometricConstants.tileHeight + 14 // extra height for price label
@@ -384,7 +384,7 @@ enum TextureFactory {
         let image = renderer.image { ctx in
             let gc = ctx.cgContext
 
-            // Hatched locked diamond
+            // Grassy diamond
             let path = CGMutablePath()
             path.move(to: CGPoint(x: w / 2, y: 4))
             path.addLine(to: CGPoint(x: w, y: 4 + IsometricConstants.tileHeight / 2))
@@ -392,42 +392,43 @@ enum TextureFactory {
             path.addLine(to: CGPoint(x: 0, y: 4 + IsometricConstants.tileHeight / 2))
             path.closeSubpath()
 
-            // Dim warm fill
-            gc.setFillColor(Theme.skAccentGold.withAlphaComponent(0.15).cgColor)
+            // Soft green grass fill (inviting, not locked-looking)
+            gc.setFillColor(UIColor(red: 0.49, green: 0.68, blue: 0.38, alpha: 0.25).cgColor)
             gc.addPath(path); gc.fillPath()
 
-            // Cross-hatch pattern inside diamond
+            // Subtle grass texture strokes inside
             gc.saveGState()
             gc.addPath(path); gc.clip()
-            gc.setStrokeColor(Theme.skAccentGold.withAlphaComponent(0.2).cgColor)
-            gc.setLineWidth(0.5)
-            let step: CGFloat = 8
-            var x: CGFloat = -w
-            while x < w * 2 {
-                gc.move(to: CGPoint(x: x, y: 0))
-                gc.addLine(to: CGPoint(x: x + h, y: h))
-                gc.move(to: CGPoint(x: x + h, y: 0))
-                gc.addLine(to: CGPoint(x: x, y: h))
-                x += step
+            gc.setStrokeColor(UIColor(red: 0.45, green: 0.62, blue: 0.35, alpha: 0.15).cgColor)
+            gc.setLineWidth(0.8)
+            let step: CGFloat = 5
+            var y: CGFloat = 0
+            while y < h {
+                gc.move(to: CGPoint(x: 0, y: y))
+                gc.addLine(to: CGPoint(x: w, y: y + CGFloat.random(in: -0.5...0.5)))
+                y += step
             }
             gc.strokePath()
             gc.restoreGState()
 
-            // Border
-            gc.setStrokeColor(Theme.skAccentGold.withAlphaComponent(0.5).cgColor)
-            gc.setLineWidth(1)
-            gc.setLineDash(phase: 0, lengths: [3, 3])
+            // Warm dashed border (inviting "expand here" feel)
+            gc.setStrokeColor(UIColor(red: 0.49, green: 0.68, blue: 0.38, alpha: 0.55).cgColor)
+            gc.setLineWidth(1.2)
+            gc.setLineDash(phase: 0, lengths: [4, 3])
             gc.addPath(path); gc.strokePath()
 
-            // Coin icon (small gold circle)
-            let coinSize: CGFloat = 8
-            let coinX = w / 2 - coinSize - 2
+            // Coin icon (warm gold circle with border)
+            let coinSize: CGFloat = 9
+            let coinX = w / 2 - coinSize - 1
             let coinY = 4 + IsometricConstants.tileHeight / 2 - coinSize / 2
             gc.setLineDash(phase: 0, lengths: [])
             gc.setFillColor(Theme.skAccentGold.cgColor)
             gc.fillEllipse(in: CGRect(x: coinX, y: coinY, width: coinSize, height: coinSize))
+            // Coin dollar sign highlight
+            gc.setFillColor(UIColor(red: 0.95, green: 0.85, blue: 0.60, alpha: 0.6).cgColor)
+            gc.fillEllipse(in: CGRect(x: coinX + 2, y: coinY + 1.5, width: 3, height: 3))
             gc.setStrokeColor(Theme.skWoodTone.cgColor)
-            gc.setLineWidth(0.5)
+            gc.setLineWidth(0.8)
             gc.strokeEllipse(in: CGRect(x: coinX, y: coinY, width: coinSize, height: coinSize))
 
             // Price text
@@ -438,7 +439,7 @@ enum TextureFactory {
                 priceStr = String(format: "%.0f", cost)
             }
             let attrs: [NSAttributedString.Key: Any] = [
-                .font: Theme.headlineUIFont(size: 8),
+                .font: Theme.headlineUIFont(size: 9),
                 .foregroundColor: Theme.skTextPrimary
             ]
             let nsStr = priceStr as NSString

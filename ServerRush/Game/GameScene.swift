@@ -145,6 +145,9 @@ final class GameScene: SKScene {
 
         // Ambient: fireflies
         spawnFireflies()
+
+        // Ambient: butterflies
+        spawnButterflies()
     }
 
     override func willMove(from view: SKView) {
@@ -1180,56 +1183,141 @@ final class GameScene: SKScene {
         }
     }
 
-    // MARK: - Ambient: Floor Decorations (Leaves)
+    // MARK: - Ambient: Floor Decorations (Leaves, Grass Tufts, Mushrooms)
 
     private func addFloorDecorations() {
         for col in 0..<gameState.gridWidth {
             for row in 0..<gameState.gridHeight {
                 guard gameState.isUnlockedTile(col: col, row: row) else { continue }
                 guard gameState.placedEquipment[GridPosition(col: col, row: row)] == nil else { continue }
-                // ~20% chance
-                guard Int.random(in: 0..<5) == 0 else { continue }
 
                 let screenPos = IsometricUtils.gridToScreen(col: col, row: row)
+                let zPos = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.decorationLayer)
 
-                // Draw a tiny leaf via CGContext
-                let leafSize: CGFloat = 8
-                let renderer = UIGraphicsImageRenderer(size: CGSize(width: leafSize, height: leafSize))
-                let leafImage = renderer.image { ctx in
-                    let gc = ctx.cgContext
-                    // Warm green leaf shape (teardrop)
-                    let hue = CGFloat.random(in: 0.25...0.35) // green to yellow-green
-                    gc.setFillColor(UIColor(hue: hue, saturation: 0.45, brightness: 0.7, alpha: 0.8).cgColor)
-                    gc.move(to: CGPoint(x: leafSize / 2, y: 0))
-                    gc.addQuadCurve(to: CGPoint(x: leafSize / 2, y: leafSize), control: CGPoint(x: leafSize, y: leafSize * 0.5))
-                    gc.addQuadCurve(to: CGPoint(x: leafSize / 2, y: 0), control: CGPoint(x: 0, y: leafSize * 0.5))
-                    gc.fillPath()
-                    // Tiny vein line
-                    gc.setStrokeColor(UIColor(hue: hue, saturation: 0.3, brightness: 0.5, alpha: 0.5).cgColor)
-                    gc.setLineWidth(0.5)
-                    gc.move(to: CGPoint(x: leafSize / 2, y: 1))
-                    gc.addLine(to: CGPoint(x: leafSize / 2, y: leafSize - 1))
-                    gc.strokePath()
+                // ~35% chance of any decoration (more lush)
+                let roll = Int.random(in: 0..<20)
+                if roll < 3 {
+                    // Grass tuft (15%)
+                    addGrassTuft(at: screenPos, zPosition: zPos)
+                } else if roll < 5 {
+                    // Leaf (10%)
+                    addLeafDecoration(at: screenPos, zPosition: zPos)
+                } else if roll == 5 {
+                    // Tiny mushroom (5%)
+                    addTinyMushroom(at: screenPos, zPosition: zPos)
                 }
-
-                let leaf = SKSpriteNode(texture: SKTexture(image: leafImage))
-                // Place near tile edge so equipment isn't obscured
-                let offsetX = CGFloat.random(in: -12...12)
-                let offsetY = CGFloat.random(in: -6...6)
-                leaf.position = CGPoint(x: screenPos.x + offsetX, y: screenPos.y + offsetY)
-                leaf.zPosition = IsometricUtils.depthForPosition(col: col, row: row, layer: IsometricConstants.decorationLayer)
-
-                // Gentle slow sway: rotate ±3 degrees over 2.5s
-                let sway = SKAction.repeatForever(SKAction.sequence([
-                    SKAction.rotate(toAngle: .pi / 60, duration: 1.25),
-                    SKAction.rotate(toAngle: -.pi / 60, duration: 1.25)
-                ]))
-                sway.timingMode = .easeInEaseOut
-                leaf.run(sway)
-
-                floorLayer.addChild(leaf)
             }
         }
+    }
+
+    private func addGrassTuft(at position: CGPoint, zPosition: CGFloat) {
+        let tuftW: CGFloat = 12
+        let tuftH: CGFloat = 8
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: tuftW, height: tuftH))
+        let image = renderer.image { ctx in
+            let gc = ctx.cgContext
+            let hue = CGFloat.random(in: 0.28...0.36)
+            let sat = CGFloat.random(in: 0.35...0.50)
+            let brt = CGFloat.random(in: 0.55...0.70)
+            let grassColor = UIColor(hue: hue, saturation: sat, brightness: brt, alpha: 0.8)
+
+            // 3 blades of grass
+            gc.setStrokeColor(grassColor.cgColor)
+            gc.setLineWidth(1.2)
+            gc.setLineCap(.round)
+
+            // Left blade
+            gc.move(to: CGPoint(x: 3, y: tuftH))
+            gc.addQuadCurve(to: CGPoint(x: 1, y: 1), control: CGPoint(x: 0, y: tuftH * 0.5))
+            gc.strokePath()
+
+            // Center blade
+            gc.move(to: CGPoint(x: tuftW / 2, y: tuftH))
+            gc.addLine(to: CGPoint(x: tuftW / 2, y: 0))
+            gc.strokePath()
+
+            // Right blade
+            gc.move(to: CGPoint(x: tuftW - 3, y: tuftH))
+            gc.addQuadCurve(to: CGPoint(x: tuftW - 1, y: 1), control: CGPoint(x: tuftW, y: tuftH * 0.5))
+            gc.strokePath()
+        }
+
+        let sprite = SKSpriteNode(texture: SKTexture(image: image))
+        let offsetX = CGFloat.random(in: -10...10)
+        let offsetY = CGFloat.random(in: -5...5)
+        sprite.position = CGPoint(x: position.x + offsetX, y: position.y + offsetY)
+        sprite.zPosition = zPosition
+        sprite.setScale(CGFloat.random(in: 0.8...1.2))
+
+        // Gentle sway
+        let sway = SKAction.repeatForever(SKAction.sequence([
+            SKAction.rotate(toAngle: .pi / 40, duration: CGFloat.random(in: 1.5...2.5)),
+            SKAction.rotate(toAngle: -.pi / 40, duration: CGFloat.random(in: 1.5...2.5))
+        ]))
+        sway.timingMode = .easeInEaseOut
+        sprite.run(sway)
+
+        floorLayer.addChild(sprite)
+    }
+
+    private func addLeafDecoration(at position: CGPoint, zPosition: CGFloat) {
+        let leafSize: CGFloat = 8
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: leafSize, height: leafSize))
+        let leafImage = renderer.image { ctx in
+            let gc = ctx.cgContext
+            let hue = CGFloat.random(in: 0.25...0.35)
+            gc.setFillColor(UIColor(hue: hue, saturation: 0.45, brightness: 0.7, alpha: 0.8).cgColor)
+            gc.move(to: CGPoint(x: leafSize / 2, y: 0))
+            gc.addQuadCurve(to: CGPoint(x: leafSize / 2, y: leafSize), control: CGPoint(x: leafSize, y: leafSize * 0.5))
+            gc.addQuadCurve(to: CGPoint(x: leafSize / 2, y: 0), control: CGPoint(x: 0, y: leafSize * 0.5))
+            gc.fillPath()
+            gc.setStrokeColor(UIColor(hue: hue, saturation: 0.3, brightness: 0.5, alpha: 0.5).cgColor)
+            gc.setLineWidth(0.5)
+            gc.move(to: CGPoint(x: leafSize / 2, y: 1))
+            gc.addLine(to: CGPoint(x: leafSize / 2, y: leafSize - 1))
+            gc.strokePath()
+        }
+
+        let leaf = SKSpriteNode(texture: SKTexture(image: leafImage))
+        leaf.position = CGPoint(x: position.x + CGFloat.random(in: -12...12), y: position.y + CGFloat.random(in: -6...6))
+        leaf.zPosition = zPosition
+
+        let sway = SKAction.repeatForever(SKAction.sequence([
+            SKAction.rotate(toAngle: .pi / 60, duration: 1.25),
+            SKAction.rotate(toAngle: -.pi / 60, duration: 1.25)
+        ]))
+        sway.timingMode = .easeInEaseOut
+        leaf.run(sway)
+
+        floorLayer.addChild(leaf)
+    }
+
+    private func addTinyMushroom(at position: CGPoint, zPosition: CGFloat) {
+        let mSize: CGFloat = 8
+        let renderer = UIGraphicsImageRenderer(size: CGSize(width: mSize, height: mSize))
+        let image = renderer.image { ctx in
+            let gc = ctx.cgContext
+            // Stem (creamy white)
+            gc.setFillColor(UIColor(red: 0.95, green: 0.90, blue: 0.82, alpha: 0.9).cgColor)
+            gc.fill(CGRect(x: mSize / 2 - 1.5, y: mSize * 0.45, width: 3, height: mSize * 0.55))
+            // Cap (warm red-brown or warm orange)
+            let capColors: [UIColor] = [
+                UIColor(red: 0.82, green: 0.42, blue: 0.32, alpha: 0.9),  // warm rust
+                UIColor(red: 0.85, green: 0.62, blue: 0.35, alpha: 0.9),  // warm orange
+                UIColor(red: 0.75, green: 0.55, blue: 0.40, alpha: 0.9),  // warm brown
+            ]
+            gc.setFillColor(capColors[Int.random(in: 0..<capColors.count)].cgColor)
+            gc.fillEllipse(in: CGRect(x: 0, y: 0, width: mSize, height: mSize * 0.55))
+            // Cap highlight
+            gc.setFillColor(UIColor(white: 1, alpha: 0.25).cgColor)
+            gc.fillEllipse(in: CGRect(x: 2, y: 1, width: 3, height: 2))
+        }
+
+        let sprite = SKSpriteNode(texture: SKTexture(image: image))
+        sprite.position = CGPoint(x: position.x + CGFloat.random(in: -10...10), y: position.y + CGFloat.random(in: -4...4))
+        sprite.zPosition = zPosition
+        sprite.setScale(CGFloat.random(in: 0.7...1.0))
+        floorLayer.addChild(sprite)
     }
 
     // MARK: - Ambient: Fireflies / Sparkles
@@ -1274,6 +1362,78 @@ final class GameScene: SKScene {
             move,
             SKAction.run { [weak self] in
                 self?.fireflyWander(firefly, center: center)
+            }
+        ]))
+    }
+
+    // MARK: - Ambient: Butterflies
+
+    private func spawnButterflies() {
+        let center = IsometricUtils.gridToScreen(col: 7, row: 7)
+        let butterflyColors: [UIColor] = [
+            UIColor(red: 0.90, green: 0.55, blue: 0.60, alpha: 0.8),  // soft pink
+            UIColor(red: 0.95, green: 0.80, blue: 0.45, alpha: 0.8),  // warm yellow
+            UIColor(red: 0.70, green: 0.60, blue: 0.85, alpha: 0.8),  // soft lavender
+            UIColor(red: 0.95, green: 0.70, blue: 0.50, alpha: 0.8),  // peach
+        ]
+
+        for _ in 0..<3 {
+            let bSize: CGFloat = 8
+            let renderer = UIGraphicsImageRenderer(size: CGSize(width: bSize, height: bSize))
+            let bImage = renderer.image { ctx in
+                let gc = ctx.cgContext
+                let color = butterflyColors[Int.random(in: 0..<butterflyColors.count)]
+                gc.setFillColor(color.cgColor)
+                // Left wing
+                gc.fillEllipse(in: CGRect(x: 0, y: 1, width: bSize * 0.45, height: bSize * 0.6))
+                // Right wing
+                gc.fillEllipse(in: CGRect(x: bSize * 0.55, y: 1, width: bSize * 0.45, height: bSize * 0.6))
+                // Body
+                gc.setFillColor(UIColor(red: 0.35, green: 0.25, blue: 0.20, alpha: 0.7).cgColor)
+                gc.fill(CGRect(x: bSize / 2 - 0.5, y: 0, width: 1, height: bSize * 0.75))
+            }
+
+            let butterfly = SKSpriteNode(texture: SKTexture(image: bImage))
+            butterfly.position = CGPoint(
+                x: center.x + CGFloat.random(in: -120...120),
+                y: center.y + CGFloat.random(in: -80...80)
+            )
+            butterfly.zPosition = IsometricConstants.effectLayer + 5
+            butterfly.alpha = 0.7
+            effectLayer.addChild(butterfly)
+
+            // Wing flap animation (scale X oscillation)
+            let flap = SKAction.repeatForever(SKAction.sequence([
+                SKAction.scaleX(to: 0.6, duration: 0.15),
+                SKAction.scaleX(to: 1.0, duration: 0.15)
+            ]))
+            butterfly.run(flap, withKey: "flap")
+
+            // Wander
+            butterflyWander(butterfly, center: center)
+        }
+    }
+
+    private func butterflyWander(_ butterfly: SKNode, center: CGPoint) {
+        let target = CGPoint(
+            x: center.x + CGFloat.random(in: -150...150),
+            y: center.y + CGFloat.random(in: -100...100)
+        )
+        let duration = TimeInterval.random(in: 4...8)
+        let move = SKAction.move(to: target, duration: duration)
+        move.timingMode = .easeInEaseOut
+
+        // Gentle rise and fall during movement
+        let bobUp = SKAction.moveBy(x: 0, y: 8, duration: duration * 0.3)
+        let bobDown = SKAction.moveBy(x: 0, y: -8, duration: duration * 0.3)
+        bobUp.timingMode = .easeInEaseOut
+        bobDown.timingMode = .easeInEaseOut
+        let bob = SKAction.sequence([bobUp, bobDown, SKAction.wait(forDuration: duration * 0.4)])
+
+        butterfly.run(SKAction.sequence([
+            SKAction.group([move, bob]),
+            SKAction.run { [weak self] in
+                self?.butterflyWander(butterfly, center: center)
             }
         ]))
     }
